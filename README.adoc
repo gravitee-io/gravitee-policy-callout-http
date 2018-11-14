@@ -1,0 +1,97 @@
+= HTTP Callout Policy
+
+ifdef::env-github[]
+image:https://ci.gravitee.io/buildStatus/icon?job=gravitee-io/gravitee-policy-callout-http/master["Build status", link="https://ci.gravitee.io/job/gravitee-io/job/gravitee-policy-callout-http/"]
+image:https://badges.gitter.im/Join Chat.svg["Gitter", link="https://gitter.im/gravitee-io/gravitee-io?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge"]
+endif::[]
+
+== Phase
+
+[cols="4*", options="header"]
+|===
+^|onRequest
+^|onResponse
+^|onRequestContent
+^|onResponseContent
+
+^.^| X
+^.^| -
+^.^| -
+^.^| -
+
+|===
+
+== Description
+
+The `callout HTTP` policy can be used to invoke an HTTP(S) URL and put the content or a sub part of the content into
+one or more variables of request execution context.
+
+This may be useful if you need some data from an external services and want to inject these data during request
+processing.
+
+The result of the callout is put in a variable named `calloutResponse` and is only available during the policy
+execution. If no variable has been configured the result of the callout will not be available anymore.
+
+== Configuration
+
+|===
+|Property |Required |Description |Type |Default
+
+.^|method
+^.^|X
+|HTTP Method used to invoke URL
+^.^|HTTP method
+^.^|GET
+
+.^|url
+^.^|X
+|URL invoked by the HTTP client
+^.^|URL
+^.^|-
+
+.^|headers
+^.^|X
+|List of HTTP headers used to invoke the URL (support EL).
+^.^|HTTP Headers
+^.^|-
+
+.^|body
+^.^|X
+|The body content send when calling the URL (support EL).
+^.^|string
+^.^|-
+
+.^|variables
+^.^|X
+|The variables to set when retrieving content of HTTP call (support EL).
+^.^|List of variables
+^.^|-
+
+|===
+
+[source, json]
+.Sample
+----
+"policy-http-callout": {
+    "method": "GET",
+    "url": "https://api.gravitee.io/echo",
+    "headers": [ {
+        "name": "X-Gravitee-Request-Id",
+        "value": "{#request.id}"
+    }],
+    "variables": [{
+        "name": "my-server",
+        "value": "{#jsonPath(#calloutResponse.content, '$.headers.X-Forwarded-Server')}"
+    }]
+}
+----
+
+== Http Status Code
+
+|===
+|Code |Message
+
+.^| ```500```
+| An error occurs while doing HTTP call.
+
+|===
