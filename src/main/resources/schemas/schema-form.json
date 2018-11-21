@@ -1,0 +1,75 @@
+{
+  "type" : "object",
+  "id" : "urn:jsonschema:io:gravitee:policy:callout:configuration:CalloutHttpPolicyConfiguration",
+  "properties" : {
+    "method" : {
+      "title": "HTTP Method",
+      "description": "HTTP method to invoke the endpoint.",
+      "type" : "string",
+      "default": "GET",
+      "enum" : [ "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "CONNECT", "OPTIONS", "TRACE" ]
+    },
+    "url": {
+      "title": "URL",
+      "type" : "string"
+    },
+    "headers" : {
+      "type" : "array",
+      "title": "Request Headers",
+      "items" : {
+        "type" : "object",
+        "id" : "urn:jsonschema:io:gravitee:policy:callout:configuration:HttpHeader",
+        "title": "Header",
+        "properties" : {
+          "name" : {
+            "title": "Name",
+            "type" : "string"
+          },
+          "value" : {
+            "title": "Value",
+            "type" : "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "body" : {
+      "title": "Request body",
+      "type" : "string",
+      "x-schema-form": {
+        "type": "textarea",
+        "placeholder": "Put your request body here"
+      }
+    },
+    "variables" : {
+      "type" : "array",
+      "title": "Variables",
+      "items" : {
+        "type" : "object",
+        "id" : "urn:jsonschema:io:gravitee:policy:callout:configuration:Variable",
+        "title": "Variable",
+        "properties" : {
+          "name" : {
+            "title": "Name",
+            "type" : "string"
+          },
+          "value" : {
+            "title": "Value",
+            "type" : "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ]
+    }
+  },"required": [
+      "url",
+      "method",
+      "variables"
+  ]
+}
