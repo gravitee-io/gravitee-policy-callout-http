@@ -63,7 +63,7 @@ execution. If no variable has been configured the result of the callout will not
 
 .^|variables
 ^.^|X
-|The variables to set when retrieving content of HTTP call (support EL).
+|The variables to set in the execution context when retrieving content of HTTP call (support EL).
 ^.^|List of variables
 ^.^|-
 
