@@ -46,7 +46,7 @@
     },
     "variables" : {
       "type" : "array",
-      "title": "Variables",
+      "title": "Context variables",
       "items" : {
         "type" : "object",
         "id" : "urn:jsonschema:io:gravitee:policy:callout:configuration:Variable",
