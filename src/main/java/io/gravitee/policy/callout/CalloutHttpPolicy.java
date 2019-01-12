@@ -22,14 +22,12 @@ import io.gravitee.policy.api.PolicyChain;
 import io.gravitee.policy.api.PolicyResult;
 import io.gravitee.policy.api.annotations.OnRequest;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
-import io.gravitee.policy.callout.configuration.Variable;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.*;
 
 import java.net.URI;
-import java.util.function.Consumer;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
@@ -60,80 +58,84 @@ public class CalloutHttpPolicy {
         if (configuration.getVariables() != null && !configuration.getVariables().isEmpty()) {
             Vertx vertx = context.getComponent(Vertx.class);
 
-            URI target = URI.create(configuration.getUrl());
+            try {
+                String url = context.getTemplateEngine().convert(configuration.getUrl());
+                URI target = URI.create(url);
 
-            HttpClientOptions options = new HttpClientOptions();
-            if (HTTPS_SCHEME.equalsIgnoreCase(target.getScheme())) {
-                options.setSsl(true).setTrustAll(true);
-            }
+                HttpClientOptions options = new HttpClientOptions();
+                if (HTTPS_SCHEME.equalsIgnoreCase(target.getScheme())) {
+                    options.setSsl(true).setTrustAll(true);
+                }
 
-            HttpClient httpClient = vertx.createHttpClient(options);
+                HttpClient httpClient = vertx.createHttpClient(options);
 
-            HttpClientRequest httpRequest = httpClient
-                    .requestAbs(convert(configuration.getMethod()), configuration.getUrl())
-                    .handler(new Handler<HttpClientResponse>() {
-                        @Override
-                        public void handle(HttpClientResponse httpResponse) {
-                            httpResponse.bodyHandler(new Handler<Buffer>() {
-                                @Override
-                                public void handle(Buffer body) {
-                                    // Put response ino template variable for EL
-                                    context.getTemplateEngine().getTemplateContext()
-                                            .setVariable(TEMPLATE_VARIABLE, new CalloutResponse(httpResponse, body.toString()));
+                HttpClientRequest httpRequest = httpClient
+                        .requestAbs(convert(configuration.getMethod()), url)
+                        .handler(new Handler<HttpClientResponse>() {
+                            @Override
+                            public void handle(HttpClientResponse httpResponse) {
+                                httpResponse.bodyHandler(new Handler<Buffer>() {
+                                    @Override
+                                    public void handle(Buffer body) {
+                                        // Put response ino template variable for EL
+                                        context.getTemplateEngine().getTemplateContext()
+                                                .setVariable(TEMPLATE_VARIABLE, new CalloutResponse(httpResponse, body.toString()));
 
-                                    // Set context variables
-                                    configuration.getVariables().forEach(variable -> {
-                                        try {
-                                            String extValue = (variable.getValue() != null) ?
-                                                    context.getTemplateEngine().convert(variable.getValue()) : null;
+                                        // Set context variables
+                                        configuration.getVariables().forEach(variable -> {
+                                            try {
+                                                String extValue = (variable.getValue() != null) ?
+                                                        context.getTemplateEngine().convert(variable.getValue()) : null;
 
-                                            context.setAttribute(variable.getName(), extValue);
-                                        } catch (Exception ex) {
-                                            // Do nothing
-                                            ex.printStackTrace();
-                                        }
-                                    });
+                                                context.setAttribute(variable.getName(), extValue);
+                                            } catch (Exception ex) {
+                                                // Do nothing
+                                                ex.printStackTrace();
+                                            }
+                                        });
 
-                                    context.getTemplateEngine().getTemplateContext()
-                                            .setVariable(TEMPLATE_VARIABLE, null);
+                                        context.getTemplateEngine().getTemplateContext()
+                                                .setVariable(TEMPLATE_VARIABLE, null);
 
-                                    // Finally continue chaining
-                                    policyChain.doNext(request, response);
+                                        // Finally continue chaining
+                                        policyChain.doNext(request, response);
 
-                                    httpClient.close();
-                                }
-                            });
+                                        httpClient.close();
+                                    }
+                                });
+                            }
+                        }).exceptionHandler(throwable -> {
+                            // Finally exit chain
+                            policyChain.failWith(PolicyResult.failure(throwable.getMessage()));
+
+                            httpClient.close();
+                        });
+
+                if (configuration.getHeaders() != null) {
+                    configuration.getHeaders().forEach(header -> {
+                        try {
+                            String extValue = (header.getValue() != null) ?
+                                    context.getTemplateEngine().convert(header.getValue()) : null;
+                            if (extValue != null) {
+                                httpRequest.putHeader(header.getName(), extValue);
+                            }
+                        } catch (Exception ex) {
+                            // Do nothing
+                            ex.printStackTrace();
                         }
-                    }).exceptionHandler(throwable -> {
-                        // Finally exit chain
-                        policyChain.failWith(PolicyResult.failure(throwable.getMessage()));
-
-                        httpClient.close();
                     });
+                }
 
-            if (configuration.getHeaders() != null) {
-                configuration.getHeaders().forEach(header -> {
-                    try {
-                        String extValue = (header.getValue() != null) ?
-                                context.getTemplateEngine().convert(header.getValue()) : null;
-                        if (extValue != null) {
-                            httpRequest.putHeader(header.getName(), extValue);
-                        }
-                    } catch (Exception ex) {
-                        // Do nothing
-                        ex.printStackTrace();
-                    }
-                });
-            }
-
-
-            if (configuration.getBody() != null && !configuration.getBody().isEmpty()) {
-                String body = context.getTemplateEngine().convert(configuration.getBody());
-                httpRequest.headers().remove(HttpHeaders.TRANSFER_ENCODING);
-                httpRequest.putHeader(HttpHeaders.CONTENT_LENGTH, Integer.toString(body.length()));
-                httpRequest.end(Buffer.buffer(body));
-            } else {
-                httpRequest.end();
+                if (configuration.getBody() != null && !configuration.getBody().isEmpty()) {
+                    String body = context.getTemplateEngine().convert(configuration.getBody());
+                    httpRequest.headers().remove(HttpHeaders.TRANSFER_ENCODING);
+                    httpRequest.putHeader(HttpHeaders.CONTENT_LENGTH, Integer.toString(body.length()));
+                    httpRequest.end(Buffer.buffer(body));
+                } else {
+                    httpRequest.end();
+                }
+            } catch (Exception ex) {
+                policyChain.failWith(PolicyResult.failure("Unable to apply expression language on the configured URL"));
             }
         } else {
             // Finally continue chaining
