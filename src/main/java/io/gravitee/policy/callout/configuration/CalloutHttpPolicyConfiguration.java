@@ -16,6 +16,7 @@
 package io.gravitee.policy.callout.configuration;
 
 import io.gravitee.common.http.HttpMethod;
+import io.gravitee.common.http.HttpStatusCode;
 import io.gravitee.policy.api.PolicyConfiguration;
 
 import java.util.ArrayList;
@@ -36,6 +37,14 @@ public class CalloutHttpPolicyConfiguration implements PolicyConfiguration {
     private HttpMethod method;
 
     private List<Variable> variables = new ArrayList<>();
+
+    private boolean exitOnError;
+
+    private String errorCondition;
+
+    private int errorStatusCode = HttpStatusCode.INTERNAL_SERVER_ERROR_500;
+
+    private String errorContent;
 
     public String getUrl() {
         return url;
@@ -75,5 +84,37 @@ public class CalloutHttpPolicyConfiguration implements PolicyConfiguration {
 
     public void setVariables(List<Variable> variables) {
         this.variables = variables;
+    }
+
+    public boolean isExitOnError() {
+        return exitOnError;
+    }
+
+    public void setExitOnError(boolean exitOnError) {
+        this.exitOnError = exitOnError;
+    }
+
+    public String getErrorCondition() {
+        return errorCondition;
+    }
+
+    public void setErrorCondition(String errorCondition) {
+        this.errorCondition = errorCondition;
+    }
+
+    public int getErrorStatusCode() {
+        return errorStatusCode;
+    }
+
+    public void setErrorStatusCode(int errorStatusCode) {
+        this.errorStatusCode = errorStatusCode;
+    }
+
+    public String getErrorContent() {
+        return errorContent;
+    }
+
+    public void setErrorContent(String errorContent) {
+        this.errorContent = errorContent;
     }
 }

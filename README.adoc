@@ -45,26 +45,50 @@ execution. If no variable has been configured the result of the callout will not
 
 .^|url
 ^.^|X
-|URL invoked by the HTTP client
+|URL invoked by the HTTP client (support EL)
 ^.^|URL
 ^.^|-
 
 .^|headers
 ^.^|X
-|List of HTTP headers used to invoke the URL (support EL).
+|List of HTTP headers used to invoke the URL (support EL)
 ^.^|HTTP Headers
 ^.^|-
 
 .^|body
 ^.^|X
-|The body content send when calling the URL (support EL).
+|The body content send when calling the URL (support EL)
 ^.^|string
 ^.^|-
 
 .^|variables
 ^.^|X
-|The variables to set in the execution context when retrieving content of HTTP call (support EL).
+|The variables to set in the execution context when retrieving content of HTTP call (support EL)
 ^.^|List of variables
+^.^|-
+
+.^|exitOnError
+^.^|X
+|Terminate the request if the error condition is true
+^.^|boolean
+^.^|false
+
+.^|errorCondition
+^.^|X
+|The condition which will be verified to end the request (support EL)
+^.^|string
+^.^|{#calloutResponse.status >= 400 and #calloutResponse.status <= 599}
+
+.^|errorStatusCode
+^.^|X
+|HTTP Status Code send to the consumer if the condition is true
+^.^|int
+^.^|500
+
+.^|errorContent
+^.^|X
+|The body response of the error if the condition is true (support EL)
+^.^|string
 ^.^|-
 
 |===

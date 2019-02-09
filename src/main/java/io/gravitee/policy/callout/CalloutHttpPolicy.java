@@ -18,6 +18,7 @@ package io.gravitee.policy.callout;
 import io.gravitee.gateway.api.ExecutionContext;
 import io.gravitee.gateway.api.Request;
 import io.gravitee.gateway.api.Response;
+import io.gravitee.gateway.api.expression.TemplateEngine;
 import io.gravitee.policy.api.PolicyChain;
 import io.gravitee.policy.api.PolicyResult;
 import io.gravitee.policy.api.annotations.OnRequest;
@@ -77,30 +78,51 @@ public class CalloutHttpPolicy {
                                 httpResponse.bodyHandler(new Handler<Buffer>() {
                                     @Override
                                     public void handle(Buffer body) {
+                                        TemplateEngine tplEngine = context.getTemplateEngine();
+
                                         // Put response ino template variable for EL
-                                        context.getTemplateEngine().getTemplateContext()
+                                        tplEngine.getTemplateContext()
                                                 .setVariable(TEMPLATE_VARIABLE, new CalloutResponse(httpResponse, body.toString()));
 
-                                        // Set context variables
-                                        configuration.getVariables().forEach(variable -> {
-                                            try {
-                                                String extValue = (variable.getValue() != null) ?
-                                                        context.getTemplateEngine().convert(variable.getValue()) : null;
-
-                                                context.setAttribute(variable.getName(), extValue);
-                                            } catch (Exception ex) {
-                                                // Do nothing
-                                                ex.printStackTrace();
-                                            }
-                                        });
-
-                                        context.getTemplateEngine().getTemplateContext()
-                                                .setVariable(TEMPLATE_VARIABLE, null);
-
-                                        // Finally continue chaining
-                                        policyChain.doNext(request, response);
-
+                                        // Close HTTP client
                                         httpClient.close();
+
+                                        // Process callout response
+                                        boolean exit = false;
+
+                                        if (configuration.isExitOnError()) {
+                                            exit = tplEngine.getValue(configuration.getErrorCondition(), Boolean.class);
+                                        }
+
+                                        if (! exit) {
+                                            // Set context variables
+                                            configuration.getVariables().forEach(variable -> {
+                                                try {
+                                                    String extValue = (variable.getValue() != null) ?
+                                                            tplEngine.getValue(variable.getValue(), String.class) : null;
+
+                                                    context.setAttribute(variable.getName(), extValue);
+                                                } catch (Exception ex) {
+                                                    // Do nothing
+                                                }
+                                            });
+
+                                            tplEngine.getTemplateContext()
+                                                    .setVariable(TEMPLATE_VARIABLE, null);
+
+                                            // Finally continue chaining
+                                            policyChain.doNext(request, response);
+                                        } else {
+                                            String errorContent = configuration.getErrorContent();
+
+                                            if (errorContent == null || errorContent.isEmpty()) {
+                                                errorContent = "Request is terminated.";
+                                            }
+
+                                            policyChain.failWith(
+                                                    PolicyResult
+                                                            .failure(configuration.getErrorStatusCode(), errorContent));
+                                        }
                                     }
                                 });
                             }
@@ -121,13 +143,13 @@ public class CalloutHttpPolicy {
                             }
                         } catch (Exception ex) {
                             // Do nothing
-                            ex.printStackTrace();
                         }
                     });
                 }
 
                 if (configuration.getBody() != null && !configuration.getBody().isEmpty()) {
-                    String body = context.getTemplateEngine().convert(configuration.getBody());
+                    String body = context.getTemplateEngine()
+                            .getValue(configuration.getBody(), String.class);
                     httpRequest.headers().remove(HttpHeaders.TRANSFER_ENCODING);
                     httpRequest.putHeader(HttpHeaders.CONTENT_LENGTH, Integer.toString(body.length()));
                     httpRequest.end(Buffer.buffer(body));
