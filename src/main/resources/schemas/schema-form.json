@@ -40,8 +40,14 @@
       "title": "Request body",
       "type" : "string",
       "x-schema-form": {
-        "type": "textarea",
-        "placeholder": "Put your request body here"
+        "type": "codemirror",
+        "codemirrorOptions": {
+          "placeholder": "Put request body here",
+          "lineWrapping": true,
+          "lineNumbers": true,
+          "allowDropFileTypes": true,
+          "autoCloseTags": true
+        }
       }
     },
     "variables" : {
@@ -66,10 +72,148 @@
         "name",
         "value"
       ]
+    },
+    "exitOnError": {
+      "title": "Exit on error",
+      "description": "Terminate the request if the error condition is true",
+      "type" : "boolean",
+      "default": false
+    },
+    "errorCondition": {
+      "title": "Error condition",
+      "description": "The condition which will be verified to end the request (support EL).",
+      "default": "{#calloutResponse.status >= 400 and #calloutResponse.status <= 599}",
+      "type" : "string"
+    },
+    "errorStatusCode": {
+      "title": "Error status code",
+      "description": "HTTP Status Code send to the consumer if the condition is true",
+      "type" : "string",
+      "default": "500",
+      "enum": [
+        "100",
+        "101",
+        "102",
+        "200",
+        "201",
+        "202",
+        "203",
+        "204",
+        "205",
+        "206",
+        "207",
+        "300",
+        "301",
+        "302",
+        "302",
+        "303",
+        "304",
+        "305",
+        "307",
+        "400",
+        "401",
+        "402",
+        "403",
+        "404",
+        "405",
+        "406",
+        "407",
+        "408",
+        "409",
+        "410",
+        "411",
+        "412",
+        "413",
+        "414",
+        "415",
+        "416",
+        "417",
+        "422",
+        "423",
+        "424",
+        "429",
+        "500",
+        "501",
+        "502",
+        "503",
+        "504",
+        "505",
+        "507"
+      ],
+      "x-schema-form": {
+        "type": "select",
+        "titleMap": {
+          "100": "100 - CONTINUE",
+          "101": "101 - SWITCHING_PROTOCOLS",
+          "102": "102 - PROCESSING",
+          "200": "200 - OK",
+          "201": "201 - CREATED",
+          "202": "202 - ACCEPTED",
+          "203": "203 - NON_AUTHORITATIVE_INFORMATION",
+          "204": "204 - NO_CONTENT",
+          "205": "205 - RESET_CONTENT",
+          "206": "206 - PARTIAL_CONTENT",
+          "207": "207 - MULTI_STATUS",
+          "300": "300 - MULTIPLE_CHOICES",
+          "301": "301 - MOVED_PERMANENTLY",
+          "302": "302 - MOVED_TEMPORARILY",
+          "302": "302 - FOUND",
+          "303": "303 - SEE_OTHER",
+          "304": "304 - NOT_MODIFIED",
+          "305": "305 - USE_PROXY",
+          "307": "307 - TEMPORARY_REDIRECT",
+          "400": "400 - BAD_REQUEST",
+          "401": "401 - UNAUTHORIZED",
+          "402": "402 - PAYMENT_REQUIRED",
+          "403": "403 - FORBIDDEN",
+          "404": "404 - NOT_FOUND",
+          "405": "405 - METHOD_NOT_ALLOWED",
+          "406": "406 - NOT_ACCEPTABLE",
+          "407": "407 - PROXY_AUTHENTICATION_REQUIRED",
+          "408": "408 - REQUEST_TIMEOUT",
+          "409": "409 - CONFLICT",
+          "410": "410 - GONE",
+          "411": "411 - LENGTH_REQUIRED",
+          "412": "412 - PRECONDITION_FAILED",
+          "413": "413 - REQUEST_ENTITY_TOO_LARGE",
+          "414": "414 - REQUEST_URI_TOO_LONG",
+          "415": "415 - UNSUPPORTED_MEDIA_TYPE",
+          "416": "416 - REQUESTED_RANGE_NOT_SATISFIABLE",
+          "417": "417 - EXPECTATION_FAILED",
+          "422": "422 - UNPROCESSABLE_ENTITY",
+          "423": "423 - LOCKED",
+          "424": "424 - FAILED_DEPENDENCY",
+          "429": "429 - TOO_MANY_REQUESTS",
+          "500": "500 - INTERNAL_SERVER_ERROR",
+          "501": "501 - NOT_IMPLEMENTED",
+          "502": "502 - BAD_GATEWAY",
+          "503": "503 - SERVICE_UNAVAILABLE",
+          "504": "504 - GATEWAY_TIMEOUT",
+          "505": "505 - HTTP_VERSION_NOT_SUPPORTED",
+          "507": "507 - INSUFFICIENT_STORAGE"
+        }
+      }
+    },
+    "errorContent": {
+      "title": "Error response body",
+      "description": "The body response of the error if the condition is true (support EL)",
+      "type": "string",
+      "x-schema-form": {
+        "type": "codemirror",
+        "codemirrorOptions": {
+          "placeholder": "Put response body here",
+          "lineWrapping": true,
+          "lineNumbers": true,
+          "allowDropFileTypes": true,
+          "autoCloseTags": true,
+          "mode": "javascript"
+        }
+      }
     }
   },"required": [
       "url",
       "method",
-      "variables"
+      "variables",
+      "exitOnError"
   ]
 }
