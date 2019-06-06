@@ -28,6 +28,8 @@ import java.util.List;
  */
 public class CalloutHttpPolicyConfiguration implements PolicyConfiguration {
 
+    private PolicyScope scope = PolicyScope.REQUEST;
+
     private String url;
 
     private List<HttpHeader> headers = new ArrayList<>();
@@ -45,6 +47,14 @@ public class CalloutHttpPolicyConfiguration implements PolicyConfiguration {
     private int errorStatusCode = HttpStatusCode.INTERNAL_SERVER_ERROR_500;
 
     private String errorContent;
+
+    public PolicyScope getScope() {
+        return scope;
+    }
+
+    public void setScope(PolicyScope scope) {
+        this.scope = scope;
+    }
 
     public String getUrl() {
         return url;

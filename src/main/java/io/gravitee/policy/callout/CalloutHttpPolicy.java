@@ -22,7 +22,9 @@ import io.gravitee.gateway.api.Response;
 import io.gravitee.policy.api.PolicyChain;
 import io.gravitee.policy.api.PolicyResult;
 import io.gravitee.policy.api.annotations.OnRequest;
+import io.gravitee.policy.api.annotations.OnResponse;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
+import io.gravitee.policy.callout.configuration.PolicyScope;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
@@ -56,6 +58,23 @@ public class CalloutHttpPolicy {
 
     @OnRequest
     public void onRequest(Request request, Response response, ExecutionContext context, PolicyChain policyChain) {
+        if (configuration.getScope() == null || configuration.getScope() == PolicyScope.REQUEST) {
+            doCallout(request, response, context, policyChain);
+        } else {
+            policyChain.doNext(request, response);
+        }
+    }
+
+    @OnResponse
+    public void onResponse(Request request, Response response, ExecutionContext context, PolicyChain policyChain) {
+        if (configuration.getScope() == PolicyScope.RESPONSE) {
+            doCallout(request, response, context, policyChain);
+        } else {
+            policyChain.doNext(request, response);
+        }
+    }
+
+    private void doCallout(Request request, Response response, ExecutionContext context, PolicyChain policyChain) {
         if (configuration.getVariables() != null && !configuration.getVariables().isEmpty()) {
             Vertx vertx = context.getComponent(Vertx.class);
 
