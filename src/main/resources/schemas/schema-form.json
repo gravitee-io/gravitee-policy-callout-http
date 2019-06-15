@@ -71,7 +71,8 @@
           },
           "value" : {
             "title": "Value",
-            "type" : "string"
+            "type" : "string",
+            "default": "{#jsonPath(#calloutResponse.content, '$.field')}"
           }
         }
       },
