@@ -27,6 +27,13 @@ public class Variable {
 
     private String value;
 
+    public Variable() {}
+
+    public Variable(String name, String value) {
+        this.name = name;
+        this.value = value;
+    }
+
     public String getName() {
         return name;
     }
