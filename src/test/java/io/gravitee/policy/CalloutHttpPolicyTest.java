@@ -77,8 +77,14 @@ public class CalloutHttpPolicyTest {
 
     @Test
     public void shouldNotProcessRequest_invalidTarget() throws Exception {
+        final String invalidTarget = "http://tsohlacollocalhost:" + wireMockRule.port() + '/';
+        stubFor(get(urlEqualTo(invalidTarget))
+                .willReturn(aResponse()
+                        .withStatus(500)
+                        .withBody("{\"key\": \"value\"}")));
+
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
-        when(configuration.getUrl()).thenReturn("http://tsohlacollocalhost:" + wireMockRule.port() + "/");
+        when(configuration.getUrl()).thenReturn(invalidTarget);
 
         final CountDownLatch lock = new CountDownLatch(1);
 
