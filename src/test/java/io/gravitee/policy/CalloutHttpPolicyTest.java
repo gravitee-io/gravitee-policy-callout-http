@@ -169,4 +169,28 @@ public class CalloutHttpPolicyTest {
         verify(getRequestedFor(urlEqualTo("/")));
     }
 
+    @Test
+    public void shouldProcessRequest_withHeaders() throws Exception {
+        stubFor(get(urlEqualTo("/"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("{\"key\": \"value\"}")
+                        .withHeader("Header", "value1", "value2")));
+
+        when(configuration.getMethod()).thenReturn(HttpMethod.GET);
+        when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
+        when(configuration.getVariables()).thenReturn(Collections.singletonList(
+                new Variable("my-headers", "{#jsonPath(#calloutResponse.headers, '$.Header')}")));
+
+        final CountDownLatch lock = new CountDownLatch(1);
+
+        new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
+
+        lock.await(1000, TimeUnit.MILLISECONDS);
+
+        verify(executionContext, times(1)).setAttribute(eq("my-headers"), eq("value1,value2"));
+        verify(policyChain, times(1)).doNext(request, response);
+
+        verify(getRequestedFor(urlEqualTo("/")));
+    }
 }
