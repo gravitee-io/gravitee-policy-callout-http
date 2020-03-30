@@ -29,6 +29,7 @@ import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.*;
+import org.springframework.expression.spel.SpelEvaluationException;
 
 import java.net.URI;
 
@@ -134,6 +135,11 @@ public class CalloutHttpPolicy {
                                         policyChain.doNext(request, response);
                                     } else {
                                         String errorContent = configuration.getErrorContent();
+                                        try {
+                                            errorContent = tplEngine.getValue(configuration.getErrorContent(), String.class);
+                                        } catch (Exception ex) {
+                                            // Do nothing
+                                        }
 
                                         if (errorContent == null || errorContent.isEmpty()) {
                                             errorContent = "Request is terminated.";
