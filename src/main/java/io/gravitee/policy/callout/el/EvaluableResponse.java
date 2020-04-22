@@ -13,15 +13,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.gravitee.policy.callout.configuration;
+package io.gravitee.policy.callout.el;
+
+import io.gravitee.common.http.HttpHeaders;
+import io.gravitee.gateway.api.Response;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
  * @author GraviteeSource Team
  */
-public enum PolicyScope {
-    REQUEST,
-    RESPONSE,
-    REQUEST_CONTENT,
-    RESPONSE_CONTENT
+public class EvaluableResponse {
+
+    private final Response response;
+    private final String content;
+
+    public EvaluableResponse(final Response response, final String content) {
+        this.response = response;
+        this.content = content;
+    }
+
+    public int getStatus() {
+        return response.status();
+    }
+
+    public HttpHeaders getHeaders() {
+        return response.headers();
+    }
+
+    public String getContent() {
+        return content;
+    }
 }
