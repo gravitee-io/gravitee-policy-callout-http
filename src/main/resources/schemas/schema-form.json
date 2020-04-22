@@ -4,10 +4,10 @@
   "properties" : {
     "scope" : {
       "title": "Scope",
-      "description": "Execute policy on <strong>request</strong> or <strong>response</strong> phase.",
+      "description": "Execute policy on <strong>request</strong> (HEAD) phase, <strong>response</strong> (HEAD) phase, <strong>request_content</strong> (includes payload) phase, <strong>response content</strong> (includes payload) phase.",
       "type" : "string",
       "default": "REQUEST",
-      "enum" : [ "REQUEST", "RESPONSE" ]
+      "enum" : [ "REQUEST", "RESPONSE", "REQUEST_CONTENT", "RESPONSE_CONTENT" ]
     },
     "method" : {
       "title": "HTTP Method",

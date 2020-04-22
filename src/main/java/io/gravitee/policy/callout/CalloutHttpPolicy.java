@@ -19,19 +19,26 @@ import io.gravitee.el.TemplateEngine;
 import io.gravitee.gateway.api.ExecutionContext;
 import io.gravitee.gateway.api.Request;
 import io.gravitee.gateway.api.Response;
+import io.gravitee.gateway.api.stream.BufferedReadWriteStream;
+import io.gravitee.gateway.api.stream.ReadWriteStream;
+import io.gravitee.gateway.api.stream.SimpleReadWriteStream;
 import io.gravitee.policy.api.PolicyChain;
 import io.gravitee.policy.api.PolicyResult;
 import io.gravitee.policy.api.annotations.OnRequest;
+import io.gravitee.policy.api.annotations.OnRequestContent;
 import io.gravitee.policy.api.annotations.OnResponse;
+import io.gravitee.policy.api.annotations.OnResponseContent;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
 import io.gravitee.policy.callout.configuration.PolicyScope;
+import io.gravitee.policy.callout.el.EvaluableRequest;
+import io.gravitee.policy.callout.el.EvaluableResponse;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.*;
-import org.springframework.expression.spel.SpelEvaluationException;
 
 import java.net.URI;
+import java.util.function.Consumer;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
@@ -41,12 +48,18 @@ public class CalloutHttpPolicy {
 
     private static final String HTTPS_SCHEME = "https";
 
+    private static final String CALLOUT_EXIT_ON_ERROR = "CALLOUT_EXIT_ON_ERROR";
+    private static final String CALLOUT_HTTP_ERROR = "CALLOUT_HTTP_ERROR";
+
     /**
      * The associated configuration to this CalloutHttp Policy
      */
     private CalloutHttpPolicyConfiguration configuration;
 
     private final static String TEMPLATE_VARIABLE = "calloutResponse";
+
+    private final static String REQUEST_TEMPLATE_VARIABLE = "request";
+    private final static String RESPONSE_TEMPLATE_VARIABLE = "response";
 
     /**
      * Create a new CalloutHttp Policy instance based on its associated configuration
@@ -60,7 +73,7 @@ public class CalloutHttpPolicy {
     @OnRequest
     public void onRequest(Request request, Response response, ExecutionContext context, PolicyChain policyChain) {
         if (configuration.getScope() == null || configuration.getScope() == PolicyScope.REQUEST) {
-            doCallout(request, response, context, policyChain);
+            doCallout(context, __ -> policyChain.doNext(request, response), policyChain::failWith);
         } else {
             policyChain.doNext(request, response);
         }
@@ -69,13 +82,63 @@ public class CalloutHttpPolicy {
     @OnResponse
     public void onResponse(Request request, Response response, ExecutionContext context, PolicyChain policyChain) {
         if (configuration.getScope() == PolicyScope.RESPONSE) {
-            doCallout(request, response, context, policyChain);
+            doCallout(context, __ -> policyChain.doNext(request, response), policyChain::failWith);
         } else {
             policyChain.doNext(request, response);
         }
     }
 
-    private void doCallout(Request request, Response response, ExecutionContext context, PolicyChain policyChain) {
+    @OnRequestContent
+    public ReadWriteStream onRequestContent(ExecutionContext context, PolicyChain policyChain) {
+        if (configuration.getScope() == PolicyScope.REQUEST_CONTENT) {
+            return createStream(PolicyScope.REQUEST_CONTENT, context, policyChain);
+        }
+
+        return null;
+    }
+
+    @OnResponseContent
+    public ReadWriteStream onResponseContent(ExecutionContext context, PolicyChain policyChain) {
+        if (configuration.getScope() == PolicyScope.RESPONSE_CONTENT) {
+            return createStream(PolicyScope.RESPONSE_CONTENT, context, policyChain);
+        }
+
+        return null;
+    }
+
+    private ReadWriteStream createStream(PolicyScope scope, ExecutionContext context, PolicyChain policyChain) {
+        return new BufferedReadWriteStream() {
+
+            io.gravitee.gateway.api.buffer.Buffer buffer = io.gravitee.gateway.api.buffer.Buffer.buffer();
+
+            @Override
+            public SimpleReadWriteStream<io.gravitee.gateway.api.buffer.Buffer> write(io.gravitee.gateway.api.buffer.Buffer content) {
+                buffer.appendBuffer(content);
+                return this;
+            }
+
+            @Override
+            public void end() {
+                context.getTemplateEngine().getTemplateContext()
+                        .setVariable(REQUEST_TEMPLATE_VARIABLE, new EvaluableRequest(context.request(),
+                                (scope == PolicyScope.REQUEST_CONTENT) ? buffer.toString() : null));
+
+                context.getTemplateEngine().getTemplateContext()
+                        .setVariable(RESPONSE_TEMPLATE_VARIABLE, new EvaluableResponse(context.response(),
+                                (scope == PolicyScope.RESPONSE_CONTENT) ? buffer.toString() : null));
+
+                doCallout(context, result -> {
+                    if (buffer.length() > 0) {
+                        super.write(buffer);
+                    }
+
+                    super.end();
+                }, policyChain::streamFailWith);
+            }
+        };
+    }
+
+    private void doCallout(ExecutionContext context, Consumer<Void> onSuccess, Consumer<PolicyResult> onError) {
         Vertx vertx = context.getComponent(Vertx.class);
 
         try {
@@ -99,7 +162,7 @@ public class CalloutHttpPolicy {
                                 public void handle(Buffer body) {
                                     TemplateEngine tplEngine = context.getTemplateEngine();
 
-                                    // Put response ino template variable for EL
+                                    // Put response into template variable for EL
                                     tplEngine.getTemplateContext()
                                             .setVariable(TEMPLATE_VARIABLE, new CalloutResponse(httpResponse, body.toString()));
 
@@ -132,7 +195,7 @@ public class CalloutHttpPolicy {
                                                 .setVariable(TEMPLATE_VARIABLE, null);
 
                                         // Finally continue chaining
-                                        policyChain.doNext(request, response);
+                                        onSuccess.accept(null);
                                     } else {
                                         String errorContent = configuration.getErrorContent();
                                         try {
@@ -145,16 +208,15 @@ public class CalloutHttpPolicy {
                                             errorContent = "Request is terminated.";
                                         }
 
-                                        policyChain.failWith(
-                                                PolicyResult
-                                                        .failure(configuration.getErrorStatusCode(), errorContent));
+                                        onError.accept(PolicyResult
+                                                .failure(CALLOUT_EXIT_ON_ERROR, configuration.getErrorStatusCode(), errorContent));
                                     }
                                 }
                             });
                         }
                     }).exceptionHandler(throwable -> {
                         // Finally exit chain
-                        policyChain.failWith(PolicyResult.failure(throwable.getMessage()));
+                        onError.accept(PolicyResult.failure(CALLOUT_HTTP_ERROR, throwable.getMessage()));
 
                         httpClient.close();
                     });
@@ -183,7 +245,7 @@ public class CalloutHttpPolicy {
                 httpRequest.end();
             }
         } catch (Exception ex) {
-            policyChain.failWith(PolicyResult.failure("Unable to apply expression language on the configured URL"));
+            onError.accept(PolicyResult.failure(CALLOUT_HTTP_ERROR, "Unable to apply expression language on the configured URL"));
         }
     }
 
