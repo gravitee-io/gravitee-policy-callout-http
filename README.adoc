@@ -110,12 +110,33 @@ execution. If no variable has been configured the result of the callout will not
 }
 ----
 
-== Http Status Code
+== Errors
 
+=== Default error
 |===
 |Code |Message
 
 .^| ```500```
-| An error occurs while doing HTTP call.
+| An error occurs while invoking URL.
+
+|===
+
+=== Override errors
+If you're looking to override the default response provided by the policy, you can do it
+thanks to the response templates feature. These templates must be define at the API level (see `Response Templates`
+from the `Proxy` menu).
+
+Here are the error keys send by this policy:
+
+[cols="2*", options="header"]
+|===
+^|Key
+^|Parameters
+
+.^|CALLOUT_EXIT_ON_ERROR
+^.^|-
+
+.^|CALLOUT_HTTP_ERROR
+^.^|-
 
 |===
