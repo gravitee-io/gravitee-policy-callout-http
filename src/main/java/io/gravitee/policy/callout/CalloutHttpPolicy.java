@@ -147,7 +147,9 @@ public class CalloutHttpPolicy {
 
             HttpClientOptions options = new HttpClientOptions();
             if (HTTPS_SCHEME.equalsIgnoreCase(target.getScheme())) {
-                options.setSsl(true).setTrustAll(true);
+                options.setSsl(true)
+                        .setTrustAll(true)
+                        .setVerifyHost(false);
             }
 
             HttpClient httpClient = vertx.createHttpClient(options);
