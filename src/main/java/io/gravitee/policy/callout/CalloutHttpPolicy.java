@@ -217,8 +217,14 @@ public class CalloutHttpPolicy {
                             });
                         }
                     }).exceptionHandler(throwable -> {
-                        // Finally exit chain
-                        onError.accept(PolicyResult.failure(CALLOUT_HTTP_ERROR, throwable.getMessage()));
+
+                        if (configuration.isExitOnError()) {
+                            // exit chain only if policy ask ExitOnError
+                            onError.accept(PolicyResult.failure(CALLOUT_HTTP_ERROR, throwable.getMessage()));
+                        } else {
+                            // otherwise continue chaining
+                            onSuccess.accept(null);
+                        }
 
                         httpClient.close();
                     });
