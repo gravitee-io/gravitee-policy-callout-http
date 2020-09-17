@@ -42,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.*;
 
@@ -192,5 +193,21 @@ public class CalloutHttpPolicyTest {
         verify(policyChain, times(1)).doNext(request, response);
 
         verify(getRequestedFor(urlEqualTo("/")));
+    }
+
+    @Test
+    public void shouldIgnoreConnectionError() throws Exception {
+        when(configuration.getMethod()).thenReturn(HttpMethod.GET);
+        when(configuration.isExitOnError()).thenReturn(false);
+        when(configuration.getUrl()).thenReturn("http://unknownhost:65534/");
+
+        final CountDownLatch lock = new CountDownLatch(1);
+
+        new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
+
+        lock.await(1000, TimeUnit.MILLISECONDS);
+
+        verify(policyChain, never()).failWith(any());
+        verify(policyChain).doNext(any(), any());
     }
 }
