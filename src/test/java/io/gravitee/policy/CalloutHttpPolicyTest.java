@@ -18,13 +18,18 @@ package io.gravitee.policy;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import io.gravitee.common.http.HttpMethod;
 import io.gravitee.common.http.HttpStatusCode;
+import io.gravitee.common.util.LinkedMultiValueMap;
+import io.gravitee.common.util.MultiValueMap;
 import io.gravitee.el.spel.SpelTemplateEngineFactory;
 import io.gravitee.gateway.api.ExecutionContext;
 import io.gravitee.gateway.api.Request;
+import io.gravitee.gateway.api.RequestWrapper;
 import io.gravitee.gateway.api.Response;
 import io.gravitee.policy.api.PolicyChain;
+import io.gravitee.policy.api.PolicyResult;
 import io.gravitee.policy.callout.CalloutHttpPolicy;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
+import io.gravitee.policy.callout.configuration.PolicyScope;
 import io.gravitee.policy.callout.configuration.Variable;
 import io.vertx.core.Vertx;
 import org.junit.Before;
@@ -36,12 +41,15 @@ import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
 import java.util.Collections;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.*;
 
@@ -64,7 +72,6 @@ public class CalloutHttpPolicyTest {
     @Mock
     private Response response;
 
-    @Mock
     private PolicyChain policyChain;
 
     @Mock
@@ -72,8 +79,19 @@ public class CalloutHttpPolicyTest {
 
     @Before
     public void init() {
+        reset(configuration, executionContext, request, response);
         when(executionContext.getComponent(Vertx.class)).thenReturn(Vertx.vertx());
         when(executionContext.getTemplateEngine()).thenReturn(new SpelTemplateEngineFactory().templateEngine());
+
+        Request request = new RequestWrapper(mock(Request.class)) {
+            @Override
+            public MultiValueMap<String, String> parameters() {
+                LinkedMultiValueMap<String, String> parameters = new LinkedMultiValueMap<>();
+                parameters.add("param", "content");
+                return parameters;
+            }
+        };
+        when(executionContext.request()).thenReturn(request);
     }
 
     @Test
@@ -89,6 +107,7 @@ public class CalloutHttpPolicyTest {
         when(configuration.getUrl()).thenReturn(invalidTarget);
 
         final CountDownLatch lock = new CountDownLatch(1);
+        this.policyChain = spy(new CountDownPolicyChain(lock));
 
         new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
 
@@ -109,6 +128,7 @@ public class CalloutHttpPolicyTest {
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
 
         final CountDownLatch lock = new CountDownLatch(1);
+        this.policyChain = spy(new CountDownPolicyChain(lock));
 
         new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
 
@@ -132,6 +152,7 @@ public class CalloutHttpPolicyTest {
                 new Variable("my-var", "{#jsonPath(#calloutResponse.content, '$.key')}")));
 
         final CountDownLatch lock = new CountDownLatch(1);
+        this.policyChain = spy(new CountDownPolicyChain(lock));
 
         new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
 
@@ -141,6 +162,46 @@ public class CalloutHttpPolicyTest {
         verify(policyChain, times(1)).doNext(request, response);
 
         verify(getRequestedFor(urlEqualTo("/")));
+    }
+
+    @Test
+    public void shouldProcessRequest_withMainRequestVariable_issue4277() throws Exception {
+        when(configuration.getScope()).thenReturn(PolicyScope.REQUEST);
+        executeProcess_withMainRequestVariable();
+    }
+
+    @Test
+    public void shouldProcessResponse_withMainRequestVariable_issue4277() throws Exception {
+        when(configuration.getScope()).thenReturn(PolicyScope.RESPONSE);
+        executeProcess_withMainRequestVariable();
+    }
+
+    private void executeProcess_withMainRequestVariable() throws InterruptedException {
+        stubFor(get(urlEqualTo("/content"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("{\"key\": \"value\"}")));
+
+        when(configuration.getMethod()).thenReturn(HttpMethod.GET);
+        when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/{#request.params['param']}");
+        when(configuration.getVariables()).thenReturn(Collections.singletonList(
+                new Variable("my-var", "{#jsonPath(#calloutResponse.content, '$.key')}")));
+
+        final CountDownLatch lock = new CountDownLatch(1);
+        this.policyChain = spy(new CountDownPolicyChain(lock));
+
+        if (configuration.getScope() == PolicyScope.RESPONSE) {
+            new CalloutHttpPolicy(configuration).onResponse(request, response, executionContext, policyChain);
+        } else {
+            new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
+        }
+
+        lock.await(1000, TimeUnit.MILLISECONDS);
+
+        verify(executionContext, times(1)).setAttribute(eq("my-var"), eq("value"));
+        verify(policyChain, times(1)).doNext(request, response);
+
+        verify(getRequestedFor(urlEqualTo("/content")));
     }
 
     @Test
@@ -157,6 +218,7 @@ public class CalloutHttpPolicyTest {
         when(configuration.getErrorStatusCode()).thenReturn(HttpStatusCode.INTERNAL_SERVER_ERROR_500);
 
         final CountDownLatch lock = new CountDownLatch(1);
+        this.policyChain = spy(new CountDownPolicyChain(lock));
 
         new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
 
@@ -183,6 +245,7 @@ public class CalloutHttpPolicyTest {
                 new Variable("my-headers", "{#jsonPath(#calloutResponse.headers, '$.Header')}")));
 
         final CountDownLatch lock = new CountDownLatch(1);
+        this.policyChain = spy(new CountDownPolicyChain(lock));
 
         new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
 
@@ -192,5 +255,45 @@ public class CalloutHttpPolicyTest {
         verify(policyChain, times(1)).doNext(request, response);
 
         verify(getRequestedFor(urlEqualTo("/")));
+    }
+
+    @Test
+    public void shouldIgnoreConnectionError() throws Exception {
+        when(configuration.getMethod()).thenReturn(HttpMethod.GET);
+        when(configuration.isExitOnError()).thenReturn(false);
+        when(configuration.getUrl()).thenReturn("http://"+ UUID.randomUUID() +":8080/");
+
+        final CountDownLatch lock = new CountDownLatch(1);
+        this.policyChain = spy(new CountDownPolicyChain(lock));
+
+        new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
+
+        lock.await(61, TimeUnit.SECONDS); // vertx DEFAULT_CONNECT_TIMEOUT is 60 seconds
+
+        verify(policyChain, never()).failWith(any());
+        verify(policyChain).doNext(any(), any());
+    }
+
+    class CountDownPolicyChain implements PolicyChain {
+        private final CountDownLatch lock;
+
+        public CountDownPolicyChain(CountDownLatch lock) {
+            this.lock = lock;
+        }
+
+        @Override
+        public void doNext(Request request, Response response) {
+            lock.countDown();
+        }
+
+        @Override
+        public void failWith(PolicyResult policyResult) {
+            lock.countDown();
+        }
+
+        @Override
+        public void streamFailWith(PolicyResult policyResult) {
+            lock.countDown();
+        }
     }
 }

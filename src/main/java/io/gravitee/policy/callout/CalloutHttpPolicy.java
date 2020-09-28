@@ -73,6 +73,9 @@ public class CalloutHttpPolicy {
     @OnRequest
     public void onRequest(Request request, Response response, ExecutionContext context, PolicyChain policyChain) {
         if (configuration.getScope() == null || configuration.getScope() == PolicyScope.REQUEST) {
+
+            initRequestResponseProperties(context);
+
             doCallout(context, __ -> policyChain.doNext(request, response), policyChain::failWith);
         } else {
             policyChain.doNext(request, response);
@@ -82,10 +85,25 @@ public class CalloutHttpPolicy {
     @OnResponse
     public void onResponse(Request request, Response response, ExecutionContext context, PolicyChain policyChain) {
         if (configuration.getScope() == PolicyScope.RESPONSE) {
+
+            initRequestResponseProperties(context);
+
             doCallout(context, __ -> policyChain.doNext(request, response), policyChain::failWith);
         } else {
             policyChain.doNext(request, response);
         }
+    }
+
+    private void initRequestResponseProperties(ExecutionContext context) {
+        initRequestResponseProperties(context, null, null);
+    }
+
+    private void initRequestResponseProperties(ExecutionContext context, String requestContent, String responseContent) {
+        context.getTemplateEngine().getTemplateContext()
+                .setVariable(REQUEST_TEMPLATE_VARIABLE, new EvaluableRequest(context.request(), requestContent));
+
+        context.getTemplateEngine().getTemplateContext()
+                .setVariable(RESPONSE_TEMPLATE_VARIABLE, new EvaluableResponse(context.response(), responseContent));
     }
 
     @OnRequestContent
@@ -119,13 +137,9 @@ public class CalloutHttpPolicy {
 
             @Override
             public void end() {
-                context.getTemplateEngine().getTemplateContext()
-                        .setVariable(REQUEST_TEMPLATE_VARIABLE, new EvaluableRequest(context.request(),
-                                (scope == PolicyScope.REQUEST_CONTENT) ? buffer.toString() : null));
-
-                context.getTemplateEngine().getTemplateContext()
-                        .setVariable(RESPONSE_TEMPLATE_VARIABLE, new EvaluableResponse(context.response(),
-                                (scope == PolicyScope.RESPONSE_CONTENT) ? buffer.toString() : null));
+                initRequestResponseProperties(context,
+                        (scope == PolicyScope.REQUEST_CONTENT) ? buffer.toString() : null,
+                        (scope == PolicyScope.RESPONSE_CONTENT) ? buffer.toString() : null);
 
                 doCallout(context, result -> {
                     if (buffer.length() > 0) {
@@ -147,7 +161,9 @@ public class CalloutHttpPolicy {
 
             HttpClientOptions options = new HttpClientOptions();
             if (HTTPS_SCHEME.equalsIgnoreCase(target.getScheme())) {
-                options.setSsl(true).setTrustAll(true);
+                options.setSsl(true)
+                        .setTrustAll(true)
+                        .setVerifyHost(false);
             }
 
             HttpClient httpClient = vertx.createHttpClient(options);
@@ -215,8 +231,14 @@ public class CalloutHttpPolicy {
                             });
                         }
                     }).exceptionHandler(throwable -> {
-                        // Finally exit chain
-                        onError.accept(PolicyResult.failure(CALLOUT_HTTP_ERROR, throwable.getMessage()));
+
+                        if (configuration.isExitOnError()) {
+                            // exit chain only if policy ask ExitOnError
+                            onError.accept(PolicyResult.failure(CALLOUT_HTTP_ERROR, throwable.getMessage()));
+                        } else {
+                            // otherwise continue chaining
+                            onSuccess.accept(null);
+                        }
 
                         httpClient.close();
                     });
