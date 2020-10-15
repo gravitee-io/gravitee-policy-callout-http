@@ -39,6 +39,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
+import org.springframework.core.env.Environment;
 
 import java.util.Collections;
 import java.util.UUID;
@@ -77,10 +78,14 @@ public class CalloutHttpPolicyTest {
     @Mock
     private CalloutHttpPolicyConfiguration configuration;
 
+    @Mock
+    private Environment env;
+
     @Before
     public void init() {
-        reset(configuration, executionContext, request, response);
+        reset(configuration, executionContext, request, response, env);
         when(executionContext.getComponent(Vertx.class)).thenReturn(Vertx.vertx());
+        when(executionContext.getComponent(Environment.class)).thenReturn(env);
         when(executionContext.getTemplateEngine()).thenReturn(new SpelTemplateEngineFactory().templateEngine());
 
         Request request = new RequestWrapper(mock(Request.class)) {
@@ -137,6 +142,35 @@ public class CalloutHttpPolicyTest {
         verify(policyChain, times(1)).doNext(request, response);
 
         verify(getRequestedFor(urlEqualTo("/")));
+    }
+
+    @Test
+    public void shouldProcessRequest_withProxy() throws Exception {
+        stubFor(get(urlEqualTo("/"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("{\"key\": \"value\"}")));
+
+        when(configuration.getMethod()).thenReturn(HttpMethod.GET);
+        when(configuration.isUseSystemProxy()).thenReturn(true);
+        when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
+
+        when(env.containsProperty(anyString())).thenReturn(true);
+        when(env.getProperty(anyString())).thenReturn("localhost-proxy", "3129", "HTTP", "null", "null");
+
+        final CountDownLatch lock = new CountDownLatch(1);
+        this.policyChain = spy(new CountDownPolicyChain(lock));
+
+        new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
+
+        lock.await(1000, TimeUnit.MILLISECONDS);
+
+        verify(policyChain).doNext(request, response);
+        verify(env).getProperty("system.proxy.port");
+        verify(env).getProperty("system.proxy.type");
+        verify(env).getProperty("system.proxy.host");
+        verify(env).getProperty("system.proxy.username");
+        verify(env).getProperty("system.proxy.password");
     }
 
     @Test

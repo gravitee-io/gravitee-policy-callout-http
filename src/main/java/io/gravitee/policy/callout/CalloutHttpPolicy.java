@@ -36,8 +36,14 @@ import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.*;
+import io.vertx.core.net.ProxyOptions;
+import io.vertx.core.net.ProxyType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
 
 import java.net.URI;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
@@ -45,6 +51,8 @@ import java.util.function.Consumer;
  * @author GraviteeSource Team
  */
 public class CalloutHttpPolicy {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CalloutHttpPolicy.class);
 
     private static final String HTTPS_SCHEME = "https";
 
@@ -166,6 +174,11 @@ public class CalloutHttpPolicy {
                         .setVerifyHost(false);
             }
 
+            if (configuration.isUseSystemProxy()) {
+                Environment env = context.getComponent(Environment.class);
+                options.setProxyOptions(getSystemProxyOptions(env));
+            }
+
             HttpClient httpClient = vertx.createHttpClient(options);
 
             HttpClientRequest httpRequest = httpClient
@@ -268,6 +281,41 @@ public class CalloutHttpPolicy {
             }
         } catch (Exception ex) {
             onError.accept(PolicyResult.failure(CALLOUT_HTTP_ERROR, "Unable to apply expression language on the configured URL"));
+        }
+    }
+
+    private ProxyOptions getSystemProxyOptions(Environment environment) {
+
+        StringBuilder errors = new StringBuilder();
+        ProxyOptions proxyOptions = new ProxyOptions();
+
+        // System proxy must be well configured. Check that this is the case.
+        if (environment.containsProperty("system.proxy.host")) {
+            proxyOptions.setHost(environment.getProperty("system.proxy.host"));
+        } else {
+            errors.append("'system.proxy.host' ");
+        }
+
+        try {
+            proxyOptions.setPort(Integer.parseInt(Objects.requireNonNull(environment.getProperty("system.proxy.port"))));
+        } catch (Exception e) {
+            errors.append("'system.proxy.port' [").append(environment.getProperty("system.proxy.port")).append("] ");
+        }
+
+        try {
+            proxyOptions.setType(ProxyType.valueOf(environment.getProperty("system.proxy.type")));
+        } catch (Exception e) {
+            errors.append("'system.proxy.type' [").append(environment.getProperty("system.proxy.type")).append("] ");
+        }
+
+        proxyOptions.setUsername(environment.getProperty("system.proxy.username"));
+        proxyOptions.setPassword(environment.getProperty("system.proxy.password"));
+
+        if (errors.length() == 0) {
+            return proxyOptions;
+        } else {
+            LOGGER.warn("CalloutHttp requires a system proxy to be defined but some configurations are missing or not well defined: {}. Ignoring proxy", errors);
+            return null;
         }
     }
 
