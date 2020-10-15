@@ -16,6 +16,11 @@
       "default": "GET",
       "enum" : [ "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "CONNECT", "OPTIONS", "TRACE" ]
     },
+    "useSystemProxy": {
+      "title": "Use system proxy",
+      "description": "Use the system proxy configured by your administrator.",
+      "type": "boolean"
+    },
     "url": {
       "title": "URL",
       "type" : "string"
