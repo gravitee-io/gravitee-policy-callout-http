@@ -48,6 +48,16 @@ public class CalloutHttpPolicyConfiguration implements PolicyConfiguration {
 
     private String errorContent;
 
+    private boolean useSystemProxy;
+
+    public boolean isUseSystemProxy() {
+        return useSystemProxy;
+    }
+
+    public void setUseSystemProxy(boolean useSystemProxy) {
+        this.useSystemProxy = useSystemProxy;
+    }
+
     public PolicyScope getScope() {
         return scope;
     }

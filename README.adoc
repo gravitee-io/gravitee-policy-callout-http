@@ -43,6 +43,12 @@ execution. If no variable has been configured the result of the callout will not
 ^.^|HTTP method
 ^.^|GET
 
+.^|useSystemProxy
+^.^|X
+|Use the system proxy configured by your administrator.
+^.^|boolean
+^.^|false
+
 .^|url
 ^.^|X
 |URL invoked by the HTTP client (support EL)
@@ -108,6 +114,49 @@ execution. If no variable has been configured the result of the callout will not
         "value": "{#jsonPath(#calloutResponse.content, '$.headers.X-Forwarded-Server')}"
     }]
 }
+----
+
+=== System proxy
+
+If the option `useSystemProxy` is checked, proxy information will be read from JVM_OPTS or from gravitee.yaml file if JVM_OPTS are not set.
+The system properties are defined here after :
+
+|===
+|Property |Required |Description
+
+.^|system.proxy.host
+^.^|X
+|Proxy Hostname or IP
+
+.^|system.proxy.port
+^.^|X
+|The proxy port
+
+.^|system.proxy.type
+^.^|X
+|The type of proxy (HTTP, SOCK4, SOCK5)
+
+.^|system.proxy.username
+^.^|
+|Username for proxy authentication if any
+
+.^|system.proxy.password
+^.^|
+|Password for proxy authentication if any
+
+|===
+
+[source, yaml]
+.Http Client Proxy Options
+----
+# global configuration of the http client
+system:
+  proxy:
+    type: HTTP
+    host: localhost
+    port: 3128
+    username: user
+    password: secret
 ----
 
 == Errors
