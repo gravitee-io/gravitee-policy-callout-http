@@ -7,7 +7,8 @@
       "description": "Execute policy on <strong>request</strong> (HEAD) phase, <strong>response</strong> (HEAD) phase, <strong>request_content</strong> (includes payload) phase, <strong>response content</strong> (includes payload) phase.",
       "type" : "string",
       "default": "REQUEST",
-      "enum" : [ "REQUEST", "RESPONSE", "REQUEST_CONTENT", "RESPONSE_CONTENT" ]
+      "enum" : [ "REQUEST", "RESPONSE", "REQUEST_CONTENT", "RESPONSE_CONTENT" ],
+      "deprecated": true
     },
     "method" : {
       "title": "HTTP Method",
