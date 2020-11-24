@@ -22,7 +22,7 @@
 
     <groupId>io.gravitee.policy</groupId>
     <artifactId>gravitee-policy-callout-http</artifactId>
-    <version>1.11.0-SNAPSHOT</version>
+    <version>1.11.0</version>
 
     <name>Gravitee.io APIM - Policy - Callout HTTP</name>
     <description>Description of the CalloutHttp Gravitee Policy</description>
@@ -34,7 +34,7 @@
     </parent>
 
     <properties>
-        <gravitee-gateway-api.version>1.22.0-SNAPSHOT</gravitee-gateway-api.version>
+        <gravitee-gateway-api.version>1.22.0</gravitee-gateway-api.version>
         <gravitee-policy-api.version>1.10.0</gravitee-policy-api.version>
         <gravitee-common.version>1.18.0</gravitee-common.version>
         <gravitee-expression-language.version>1.4.1</gravitee-expression-language.version>
