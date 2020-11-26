@@ -26,6 +26,16 @@
       "title": "URL",
       "type" : "string"
     },
+    "conTimeout": {
+      "title": "Connection Timeout (ms)",
+      "default": 1000,
+      "type" : "number"
+    },
+    "readTimeout": {
+      "title": "Read Timeout (ms)",
+      "default": 5000,
+      "type" : "number"
+    },
     "headers" : {
       "type" : "array",
       "title": "Request Headers",
@@ -86,6 +96,12 @@
         "name",
         "value"
       ]
+    },
+    "ignoreExceptions": {
+      "title": "Ignore Timeouts",
+      "description": "Ignore Timeouts Exceptions in cases that it's needed",
+      "type" : "boolean",
+      "default": false
     },
     "exitOnError": {
       "title": "Exit on error",

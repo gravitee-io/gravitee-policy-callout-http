@@ -70,6 +70,12 @@ public class CalloutHttpPolicy {
     private final static String RESPONSE_TEMPLATE_VARIABLE = "response";
 
     /**
+     * Default values for timeouts
+     */
+    private final static Integer CONN_TIMEOUT = 1000;
+    private final static Integer READ_TIMEOUT = 5000;
+
+    /**
      * Create a new CalloutHttp Policy instance based on its associated configuration
      *
      * @param configuration the associated configuration to the new CalloutHttp Policy instance
@@ -165,6 +171,9 @@ public class CalloutHttpPolicy {
 
         try {
             String url = context.getTemplateEngine().convert(configuration.getUrl());
+            TemplateEngine tplEngine = context.getTemplateEngine();
+            Integer conTimeout = null;
+            Integer readTimeout = null;
             URI target = URI.create(url);
 
             HttpClientOptions options = new HttpClientOptions();
@@ -173,6 +182,20 @@ public class CalloutHttpPolicy {
                         .setTrustAll(true)
                         .setVerifyHost(false);
             }
+
+            if (configuration.getConTimeout() != null && !configuration.getConTimeout().isEmpty()) {
+                conTimeout = tplEngine.getValue(configuration.getConTimeout(), Integer.class);
+            } else {
+                conTimeout = CONN_TIMEOUT;
+            }
+
+            if (configuration.getReadTimeout() != null && !configuration.getReadTimeout().isEmpty()) {
+                readTimeout = tplEngine.getValue(configuration.getReadTimeout(), Integer.class);
+            } else {
+                readTimeout = READ_TIMEOUT;
+            }
+
+            options.setConnectTimeout(conTimeout);
 
             if (configuration.isUseSystemProxy()) {
                 Environment env = context.getComponent(Environment.class);
@@ -245,9 +268,15 @@ public class CalloutHttpPolicy {
                         }
                     }).exceptionHandler(throwable -> {
 
-                        if (configuration.isExitOnError()) {
-                            // exit chain only if policy ask ExitOnError
-                            onError.accept(PolicyResult.failure(CALLOUT_HTTP_ERROR, throwable.getMessage()));
+                        // exit and validate ExitOnError only if ignore exceptions are false
+                        if (!configuration.ignoreTimeouts()) {
+                            // exit chain only if policy ask not ExitOnError
+                            if (configuration.isExitOnError()) {
+                                onError.accept(PolicyResult.failure(CALLOUT_HTTP_ERROR, throwable.getMessage()));
+                            } else {
+                                // otherwise continue chaining
+                                onSuccess.accept(null);
+                            }
                         } else {
                             // otherwise continue chaining
                             onSuccess.accept(null);
@@ -255,6 +284,8 @@ public class CalloutHttpPolicy {
 
                         httpClient.close();
                     });
+
+            httpRequest.setTimeout(readTimeout);
 
             if (configuration.getHeaders() != null) {
                 configuration.getHeaders().forEach(header -> {

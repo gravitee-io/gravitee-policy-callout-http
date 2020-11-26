@@ -110,6 +110,8 @@ public class CalloutHttpPolicyTest {
 
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.getUrl()).thenReturn(invalidTarget);
+        when(configuration.getConTimeout()).thenReturn("1000");
+        when(configuration.getReadTimeout()).thenReturn("1000");
 
         final CountDownLatch lock = new CountDownLatch(1);
         this.policyChain = spy(new CountDownPolicyChain(lock));
@@ -131,6 +133,8 @@ public class CalloutHttpPolicyTest {
 
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
+        when(configuration.getConTimeout()).thenReturn("1000");
+        when(configuration.getReadTimeout()).thenReturn("1000");
 
         final CountDownLatch lock = new CountDownLatch(1);
         this.policyChain = spy(new CountDownPolicyChain(lock));
@@ -154,6 +158,8 @@ public class CalloutHttpPolicyTest {
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.isUseSystemProxy()).thenReturn(true);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
+        when(configuration.getConTimeout()).thenReturn("1000");
+        when(configuration.getReadTimeout()).thenReturn("1000");
 
         when(env.containsProperty(anyString())).thenReturn(true);
         when(env.getProperty(anyString())).thenReturn("localhost-proxy", "3129", "HTTP", "null", "null");
@@ -182,6 +188,8 @@ public class CalloutHttpPolicyTest {
 
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
+        when(configuration.getConTimeout()).thenReturn("1000");
+        when(configuration.getReadTimeout()).thenReturn("1000");
         when(configuration.getVariables()).thenReturn(Collections.singletonList(
                 new Variable("my-var", "{#jsonPath(#calloutResponse.content, '$.key')}")));
 
@@ -218,6 +226,8 @@ public class CalloutHttpPolicyTest {
 
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/{#request.params['param']}");
+        when(configuration.getConTimeout()).thenReturn("1000");
+        when(configuration.getReadTimeout()).thenReturn("1000");
         when(configuration.getVariables()).thenReturn(Collections.singletonList(
                 new Variable("my-var", "{#jsonPath(#calloutResponse.content, '$.key')}")));
 
@@ -246,6 +256,8 @@ public class CalloutHttpPolicyTest {
 
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
+        when(configuration.getConTimeout()).thenReturn("1000");
+        when(configuration.getReadTimeout()).thenReturn("1000");
         when(configuration.isExitOnError()).thenReturn(true);
         when(configuration.getErrorCondition()).thenReturn("{#calloutResponse.status >= 400 and #calloutResponse.status <= 599}");
         when(configuration.getErrorContent()).thenReturn("This is an error content");
@@ -275,6 +287,8 @@ public class CalloutHttpPolicyTest {
 
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
+        when(configuration.getConTimeout()).thenReturn("1000");
+        when(configuration.getReadTimeout()).thenReturn("1000");
         when(configuration.getVariables()).thenReturn(Collections.singletonList(
                 new Variable("my-headers", "{#jsonPath(#calloutResponse.headers, '$.Header')}")));
 
@@ -294,7 +308,28 @@ public class CalloutHttpPolicyTest {
     @Test
     public void shouldIgnoreConnectionError() throws Exception {
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
+        when(configuration.getConTimeout()).thenReturn("60000");
+        when(configuration.getReadTimeout()).thenReturn("60000");
         when(configuration.isExitOnError()).thenReturn(false);
+        when(configuration.getUrl()).thenReturn("http://"+ UUID.randomUUID() +":8080/");
+
+        final CountDownLatch lock = new CountDownLatch(1);
+        this.policyChain = spy(new CountDownPolicyChain(lock));
+
+        new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
+
+        lock.await(61, TimeUnit.SECONDS); // vertx DEFAULT_CONNECT_TIMEOUT is 60 seconds
+
+        verify(policyChain, never()).failWith(any());
+        verify(policyChain).doNext(any(), any());
+    }
+
+    @Test
+    public void shouldIgnoreExceptions() throws Exception {
+        when(configuration.getMethod()).thenReturn(HttpMethod.GET);
+        when(configuration.getConTimeout()).thenReturn("60000");
+        when(configuration.getReadTimeout()).thenReturn("60000");
+        when(configuration.ignoreTimeouts()).thenReturn(true);
         when(configuration.getUrl()).thenReturn("http://"+ UUID.randomUUID() +":8080/");
 
         final CountDownLatch lock = new CountDownLatch(1);

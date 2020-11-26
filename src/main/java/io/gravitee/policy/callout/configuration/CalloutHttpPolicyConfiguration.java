@@ -74,6 +74,12 @@ public class CalloutHttpPolicyConfiguration implements PolicyConfiguration {
         this.url = url;
     }
 
+    private String conTimeout;
+
+    private String readTimeout;
+
+    private boolean ignoreExceptions;
+
     public List<HttpHeader> getHeaders() {
         return headers;
     }
@@ -136,5 +142,29 @@ public class CalloutHttpPolicyConfiguration implements PolicyConfiguration {
 
     public void setErrorContent(String errorContent) {
         this.errorContent = errorContent;
+    }
+
+    public String getConTimeout() {
+        return conTimeout;
+    }
+
+    public void setConTimeout(String conTimeout) {
+        this.conTimeout = conTimeout;
+    }
+
+    public String getReadTimeout() {
+        return readTimeout;
+    }
+
+    public void setReadTimeout(String readTimeout) {
+        this.readTimeout = readTimeout;
+    }
+
+    public boolean ignoreTimeouts() {
+        return ignoreExceptions;
+    }
+
+    public void setIgnoreExceptions(boolean ignoreExceptions) {
+        this.ignoreExceptions = ignoreExceptions;
     }
 }
