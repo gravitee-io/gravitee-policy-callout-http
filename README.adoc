@@ -1,4 +1,4 @@
-= HTTP Callout Policy
+= HTTP callout policy
 
 ifdef::env-github[]
 image:https://ci.gravitee.io/buildStatus/icon?job=gravitee-io/gravitee-policy-callout-http/master["Build status", link="https://ci.gravitee.io/job/gravitee-io/job/gravitee-policy-callout-http/"]
@@ -23,14 +23,14 @@ endif::[]
 
 == Description
 
-The `callout HTTP` policy can be used to invoke an HTTP(S) URL and put the content or a sub part of the content into
-one or more variables of request execution context.
+You can use the `callout-http` policy to invoke an HTTP(S) URL and place a subset or all of the content in
+one or more variables of the request execution context.
 
-This may be useful if you need some data from an external services and want to inject these data during request
+This can be useful if you need some data from an external service and want to inject it during request
 processing.
 
-The result of the callout is put in a variable named `calloutResponse` and is only available during the policy
-execution. If no variable has been configured the result of the callout will not be available anymore.
+The result of the callout is placed in a variable called `calloutResponse` and is only available during policy
+execution. If no variable is configured the result of the callout is no longer available.
 
 == Configuration
 
@@ -45,7 +45,7 @@ execution. If no variable has been configured the result of the callout will not
 
 .^|useSystemProxy
 ^.^|X
-|Use the system proxy configured by your administrator.
+|Use the system proxy configured by your administrator
 ^.^|boolean
 ^.^|false
 
@@ -87,7 +87,7 @@ execution. If no variable has been configured the result of the callout will not
 
 .^|errorStatusCode
 ^.^|X
-|HTTP Status Code send to the consumer if the condition is true
+|HTTP Status Code sent to the consumer if the condition is true
 ^.^|int
 ^.^|500
 
@@ -99,8 +99,9 @@ execution. If no variable has been configured the result of the callout will not
 
 |===
 
+== Examples
+
 [source, json]
-.Sample
 ----
 "policy-http-callout": {
     "method": "GET",
@@ -116,10 +117,10 @@ execution. If no variable has been configured the result of the callout will not
 }
 ----
 
-=== System proxy
+== System proxy
 
-If the option `useSystemProxy` is checked, proxy information will be read from JVM_OPTS or from gravitee.yaml file if JVM_OPTS are not set.
-The system properties are defined here after :
+If the option `useSystemProxy` is checked, proxy information will be read from `JVM_OPTS` or from the `gravitee.yml` file if `JVM_OPTS` is not set.
+The system properties are as follows:
 
 |===
 |Property |Required |Description
@@ -146,8 +147,9 @@ The system properties are defined here after :
 
 |===
 
+=== HTTP client proxy options
+
 [source, yaml]
-.Http Client Proxy Options
 ----
 # global configuration of the http client
 system:
@@ -162,20 +164,20 @@ system:
 == Errors
 
 === Default error
+
 |===
 |Code |Message
 
 .^| ```500```
-| An error occurs while invoking URL.
+| An error occurred while invoking URL
 
 |===
 
 === Override errors
-If you're looking to override the default response provided by the policy, you can do it
-thanks to the response templates feature. These templates must be define at the API level (see `Response Templates`
-from the `Proxy` menu).
 
-Here are the error keys send by this policy:
+You can override the default response provided by the policy with the response templates feature. These templates must be defined at the API level with the APIM Console *Proxy > Response Templates* function.
+
+The error keys sent by this policy are as follows:
 
 [cols="2*", options="header"]
 |===
