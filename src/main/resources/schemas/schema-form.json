@@ -29,12 +29,14 @@
     "conTimeout": {
       "title": "Connection Timeout (ms)",
       "default": 1000,
-      "type" : "number"
+      "type" : "integer",
+      "minimum": 0
     },
     "readTimeout": {
       "title": "Read Timeout (ms)",
       "default": 5000,
-      "type" : "number"
+      "type" : "integer",
+      "minimum": 0
     },
     "headers" : {
       "type" : "array",
@@ -97,8 +99,8 @@
         "value"
       ]
     },
-    "ignoreExceptions": {
-      "title": "Ignore Timeouts",
+    "continueOnTimeout": {
+      "title": "Ignore Timeouts and continue the flow",
       "description": "Ignore Timeouts Exceptions in cases that it's needed",
       "type" : "boolean",
       "default": false

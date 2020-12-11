@@ -78,7 +78,7 @@ public class CalloutHttpPolicyConfiguration implements PolicyConfiguration {
 
     private String readTimeout;
 
-    private boolean ignoreExceptions;
+    private boolean continueOnTimeout;
 
     public List<HttpHeader> getHeaders() {
         return headers;
@@ -160,11 +160,11 @@ public class CalloutHttpPolicyConfiguration implements PolicyConfiguration {
         this.readTimeout = readTimeout;
     }
 
-    public boolean ignoreTimeouts() {
-        return ignoreExceptions;
+    public boolean isContinueOnTimeout() {
+        return continueOnTimeout;
     }
 
-    public void setIgnoreExceptions(boolean ignoreExceptions) {
-        this.ignoreExceptions = ignoreExceptions;
+    public void setContinueOnTimeout(boolean continueOnTimeout) {
+        this.continueOnTimeout = continueOnTimeout;
     }
 }

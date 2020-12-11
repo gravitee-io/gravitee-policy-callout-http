@@ -325,11 +325,11 @@ public class CalloutHttpPolicyTest {
     }
 
     @Test
-    public void shouldIgnoreExceptions() throws Exception {
+    public void shouldContinueOnTimeout() throws Exception {
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.getConTimeout()).thenReturn("60000");
         when(configuration.getReadTimeout()).thenReturn("60000");
-        when(configuration.ignoreTimeouts()).thenReturn(true);
+        when(configuration.isContinueOnTimeout()).thenReturn(true);
         when(configuration.getUrl()).thenReturn("http://"+ UUID.randomUUID() +":8080/");
 
         final CountDownLatch lock = new CountDownLatch(1);

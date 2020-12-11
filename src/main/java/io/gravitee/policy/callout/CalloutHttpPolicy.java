@@ -269,7 +269,7 @@ public class CalloutHttpPolicy {
                     }).exceptionHandler(throwable -> {
 
                         // exit and validate ExitOnError only if ignore exceptions are false
-                        if (!configuration.ignoreTimeouts()) {
+                        if (!configuration.isContinueOnTimeout()) {
                             // exit chain only if policy ask not ExitOnError
                             if (configuration.isExitOnError()) {
                                 onError.accept(PolicyResult.failure(CALLOUT_HTTP_ERROR, throwable.getMessage()));
