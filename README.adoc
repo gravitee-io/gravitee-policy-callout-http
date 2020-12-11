@@ -55,6 +55,18 @@ execution. If no variable has been configured the result of the callout will not
 ^.^|URL
 ^.^|-
 
+.^|conTimeout
+^.^|X
+|Connection Timeout (ms)
+^.^|int
+^.^|1000
+
+.^|readTimeout
+^.^|X
+|Read Timeout (ms)
+^.^|int
+^.^|5000
+
 .^|headers
 ^.^|X
 |List of HTTP headers used to invoke the URL (support EL)
@@ -72,6 +84,12 @@ execution. If no variable has been configured the result of the callout will not
 |The variables to set in the execution context when retrieving content of HTTP call (support EL)
 ^.^|List of variables
 ^.^|-
+
+.^|continueOnTimeout
+^.^|X
+|Ignore Timeouts and continue the flow
+^.^|boolean
+^.^|false
 
 .^|exitOnError
 ^.^|X
@@ -105,6 +123,8 @@ execution. If no variable has been configured the result of the callout will not
 "policy-http-callout": {
     "method": "GET",
     "url": "https://api.gravitee.io/echo",
+    "conTimeout": 1000,
+    "readTimeout": 5000,
     "headers": [ {
         "name": "X-Gravitee-Request-Id",
         "value": "{#request.id}"
