@@ -225,7 +225,6 @@
   },"required": [
       "url",
       "method",
-      "variables",
       "exitOnError"
   ]
 }
