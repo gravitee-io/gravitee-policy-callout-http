@@ -32,6 +32,10 @@ processing.
 The result of the callout is placed in a variable called `calloutResponse` and is only available during policy
 execution. If no variable is configured the result of the callout is no longer available.
 
+=== Policy identifier
+
+You can enable or disable the policy with policy identifier `policy-http-callout`.
+
 == Configuration
 
 |===
