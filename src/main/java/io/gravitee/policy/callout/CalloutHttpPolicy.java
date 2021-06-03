@@ -32,6 +32,7 @@ import io.gravitee.policy.api.annotations.OnResponse;
 import io.gravitee.policy.api.annotations.OnResponseContent;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
 import io.gravitee.policy.callout.configuration.PolicyScope;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
@@ -181,107 +182,119 @@ public class CalloutHttpPolicy {
 
             HttpClient httpClient = vertx.createHttpClient(options);
 
-            HttpClientRequest httpRequest = httpClient
-                    .requestAbs(convert(configuration.getMethod()), url)
-                    .handler(new Handler<HttpClientResponse>() {
-                        @Override
-                        public void handle(HttpClientResponse httpResponse) {
-                            httpResponse.bodyHandler(new Handler<Buffer>() {
-                                @Override
-                                public void handle(Buffer body) {
-                                    TemplateEngine tplEngine = context.getTemplateEngine();
+            RequestOptions requestOpts = new RequestOptions()
+                    .setAbsoluteURI(url)
+                    .setMethod(convert(configuration.getMethod()));
 
-                                    // Put response into template variable for EL
-                                    tplEngine.getTemplateContext()
-                                            .setVariable(TEMPLATE_VARIABLE, new CalloutResponse(httpResponse, body.toString()));
+            final Future<HttpClientRequest> futureRequest = httpClient.request(requestOpts);
 
-                                    // Close HTTP client
-                                    httpClient.close();
+            futureRequest.onFailure(throwable -> handleFailure(onSuccess, onError, httpClient, throwable));
 
-                                    // Process callout response
-                                    boolean exit = false;
+            futureRequest.onSuccess(httpClientRequest -> {
+                // Connection is made, lets continue.
+                final Future<HttpClientResponse> futureResponse;
 
-                                    if (configuration.isExitOnError()) {
-                                        exit = tplEngine.getValue(configuration.getErrorCondition(), Boolean.class);
-                                    }
-
-                                    if (!exit) {
-                                        // Set context variables
-                                        if (configuration.getVariables() != null) {
-                                            configuration.getVariables().forEach(variable -> {
-                                                try {
-                                                    String extValue = (variable.getValue() != null) ?
-                                                            tplEngine.getValue(variable.getValue(), String.class) : null;
-
-                                                    context.setAttribute(variable.getName(), extValue);
-                                                } catch (Exception ex) {
-                                                    // Do nothing
-                                                }
-                                            });
-                                        }
-
-                                        tplEngine.getTemplateContext()
-                                                .setVariable(TEMPLATE_VARIABLE, null);
-
-                                        // Finally continue chaining
-                                        onSuccess.accept(null);
-                                    } else {
-                                        String errorContent = configuration.getErrorContent();
-                                        try {
-                                            errorContent = tplEngine.getValue(configuration.getErrorContent(), String.class);
-                                        } catch (Exception ex) {
-                                            // Do nothing
-                                        }
-
-                                        if (errorContent == null || errorContent.isEmpty()) {
-                                            errorContent = "Request is terminated.";
-                                        }
-
-                                        onError.accept(PolicyResult
-                                                .failure(CALLOUT_EXIT_ON_ERROR, configuration.getErrorStatusCode(), errorContent));
-                                    }
-                                }
-                            });
+                if (configuration.getHeaders() != null) {
+                    configuration.getHeaders().forEach(header -> {
+                        try {
+                            String extValue = (header.getValue() != null) ?
+                                    context.getTemplateEngine().convert(header.getValue()) : null;
+                            if (extValue != null) {
+                                httpClientRequest.putHeader(header.getName(), extValue);
+                            }
+                        } catch (Exception ex) {
+                            // Do nothing
                         }
-                    }).exceptionHandler(throwable -> {
-
-                        if (configuration.isExitOnError()) {
-                            // exit chain only if policy ask ExitOnError
-                            onError.accept(PolicyResult.failure(CALLOUT_HTTP_ERROR, throwable.getMessage()));
-                        } else {
-                            // otherwise continue chaining
-                            onSuccess.accept(null);
-                        }
-
-                        httpClient.close();
                     });
+                }
 
-            if (configuration.getHeaders() != null) {
-                configuration.getHeaders().forEach(header -> {
-                    try {
-                        String extValue = (header.getValue() != null) ?
-                                context.getTemplateEngine().convert(header.getValue()) : null;
-                        if (extValue != null) {
-                            httpRequest.putHeader(header.getName(), extValue);
-                        }
-                    } catch (Exception ex) {
-                        // Do nothing
-                    }
-                });
-            }
+                if (configuration.getBody() != null && !configuration.getBody().isEmpty()) {
+                    String body = context.getTemplateEngine()
+                            .getValue(configuration.getBody(), String.class);
+                    httpClientRequest.headers().remove(HttpHeaders.TRANSFER_ENCODING);
+                    httpClientRequest.putHeader(HttpHeaders.CONTENT_LENGTH, Integer.toString(body.length()));
+                    futureResponse = httpClientRequest.send(Buffer.buffer(body));
+                } else {
+                    futureResponse = httpClientRequest.send();
+                }
 
-            if (configuration.getBody() != null && !configuration.getBody().isEmpty()) {
-                String body = context.getTemplateEngine()
-                        .getValue(configuration.getBody(), String.class);
-                httpRequest.headers().remove(HttpHeaders.TRANSFER_ENCODING);
-                httpRequest.putHeader(HttpHeaders.CONTENT_LENGTH, Integer.toString(body.length()));
-                httpRequest.end(Buffer.buffer(body));
-            } else {
-                httpRequest.end();
-            }
+                futureResponse
+                        .onSuccess(httpResponse -> handleSuccess(context, onSuccess, onError, httpClient, httpResponse))
+                        .onFailure(throwable -> handleFailure(onSuccess, onError, httpClient, throwable));
+            });
+
+
         } catch (Exception ex) {
             onError.accept(PolicyResult.failure(CALLOUT_HTTP_ERROR, "Unable to apply expression language on the configured URL"));
         }
+    }
+
+    private void handleSuccess(ExecutionContext context, Consumer<Void> onSuccess, Consumer<PolicyResult> onError, HttpClient httpClient, HttpClientResponse httpResponse) {
+        httpResponse.bodyHandler(body -> {
+            TemplateEngine tplEngine = context.getTemplateEngine();
+
+            // Put response into template variable for EL
+            tplEngine.getTemplateContext()
+                    .setVariable(TEMPLATE_VARIABLE, new CalloutResponse(httpResponse, body.toString()));
+
+            // Close HTTP client
+            httpClient.close();
+
+            // Process callout response
+            boolean exit = false;
+
+            if (configuration.isExitOnError()) {
+                exit = tplEngine.getValue(configuration.getErrorCondition(), Boolean.class);
+            }
+
+            if (!exit) {
+                // Set context variables
+                if (configuration.getVariables() != null) {
+                    configuration.getVariables().forEach(variable -> {
+                        try {
+                            String extValue = (variable.getValue() != null) ?
+                                    tplEngine.getValue(variable.getValue(), String.class) : null;
+
+                            context.setAttribute(variable.getName(), extValue);
+                        } catch (Exception ex) {
+                            // Do nothing
+                        }
+                    });
+                }
+
+                tplEngine.getTemplateContext()
+                        .setVariable(TEMPLATE_VARIABLE, null);
+
+                // Finally continue chaining
+                onSuccess.accept(null);
+            } else {
+                String errorContent = configuration.getErrorContent();
+                try {
+                    errorContent = tplEngine.getValue(configuration.getErrorContent(), String.class);
+                } catch (Exception ex) {
+                    // Do nothing
+                }
+
+                if (errorContent == null || errorContent.isEmpty()) {
+                    errorContent = "Request is terminated.";
+                }
+
+                onError.accept(PolicyResult
+                        .failure(CALLOUT_EXIT_ON_ERROR, configuration.getErrorStatusCode(), errorContent));
+            }
+        });
+    }
+
+    private void handleFailure(Consumer<Void> onSuccess, Consumer<PolicyResult> onError, HttpClient httpClient, Throwable throwable) {
+        if (configuration.isExitOnError()) {
+            // exit chain only if policy ask ExitOnError
+            onError.accept(PolicyResult.failure(CALLOUT_HTTP_ERROR, throwable.getMessage()));
+        } else {
+            // otherwise continue chaining
+            onSuccess.accept(null);
+        }
+
+        httpClient.close();
     }
 
     private ProxyOptions getSystemProxyOptions(Environment environment) {
@@ -340,7 +353,7 @@ public class CalloutHttpPolicy {
             case TRACE:
                 return HttpMethod.TRACE;
             case OTHER:
-                return HttpMethod.OTHER;
+                return HttpMethod.valueOf("OTHER");
         }
 
         return null;
