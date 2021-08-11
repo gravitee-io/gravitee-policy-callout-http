@@ -67,6 +67,12 @@ execution. If no variable is configured the result of the callout is no longer a
 ^.^|string
 ^.^|-
 
+.^|fireAndForget
+^.^|X
+|Make the http call without expecting any response. When activating this mode, context variables and exit on error are useless.
+^.^|boolean
+^.^|false
+
 .^|variables
 ^.^|X
 |The variables to set in the execution context when retrieving content of HTTP call (support EL)

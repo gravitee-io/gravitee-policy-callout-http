@@ -164,6 +164,24 @@ public class CalloutHttpPolicy {
     private void doCallout(ExecutionContext context, Consumer<Void> onSuccess, Consumer<PolicyResult> onError) {
         Vertx vertx = context.getComponent(Vertx.class);
 
+        final Consumer<Void> onSuccessCallback;
+        final Consumer<PolicyResult> onErrorCallback;
+
+        if (configuration.isFireAndForget()) {
+            // If fire & forget, continue the chaining before making the http callout.
+            onSuccess.accept(null);
+
+            // callBacks need to be replaced because the fire & forget mode does not allow to act on the request / response once the http call as been performed.
+            onSuccessCallback = (aVoid) -> {
+            };
+            onErrorCallback = policyResult -> {
+            };
+        } else {
+            // Preserve original callback when not in fire & forget mode.
+            onSuccessCallback = onSuccess;
+            onErrorCallback = onError;
+        }
+
         try {
             String url = context.getTemplateEngine().convert(configuration.getUrl());
             URI target = URI.create(url);
@@ -188,7 +206,7 @@ public class CalloutHttpPolicy {
 
             final Future<HttpClientRequest> futureRequest = httpClient.request(requestOpts);
 
-            futureRequest.onFailure(throwable -> handleFailure(onSuccess, onError, httpClient, throwable));
+            futureRequest.onFailure(throwable -> handleFailure(onSuccessCallback, onErrorCallback, httpClient, throwable));
 
             futureRequest.onSuccess(httpClientRequest -> {
                 // Connection is made, lets continue.
@@ -208,9 +226,16 @@ public class CalloutHttpPolicy {
                     });
                 }
 
+                String body = null;
+
                 if (configuration.getBody() != null && !configuration.getBody().isEmpty()) {
-                    String body = context.getTemplateEngine()
+                    // Body can be dynamically resolved using el expression.
+                    body = context.getTemplateEngine()
                             .getValue(configuration.getBody(), String.class);
+                }
+
+                // Check the resolved body before trying to send it.
+                if(body != null && !body.isEmpty()) {
                     httpClientRequest.headers().remove(HttpHeaders.TRANSFER_ENCODING);
                     httpClientRequest.putHeader(HttpHeaders.CONTENT_LENGTH, Integer.toString(body.length()));
                     futureResponse = httpClientRequest.send(Buffer.buffer(body));
@@ -219,13 +244,13 @@ public class CalloutHttpPolicy {
                 }
 
                 futureResponse
-                        .onSuccess(httpResponse -> handleSuccess(context, onSuccess, onError, httpClient, httpResponse))
-                        .onFailure(throwable -> handleFailure(onSuccess, onError, httpClient, throwable));
+                        .onSuccess(httpResponse -> handleSuccess(context, onSuccessCallback, onErrorCallback, httpClient, httpResponse))
+                        .onFailure(throwable -> handleFailure(onSuccessCallback, onErrorCallback, httpClient, throwable));
             });
 
 
         } catch (Exception ex) {
-            onError.accept(PolicyResult.failure(CALLOUT_HTTP_ERROR, "Unable to apply expression language on the configured URL"));
+            onErrorCallback.accept(PolicyResult.failure(CALLOUT_HTTP_ERROR, "Unable to apply expression language on the configured URL"));
         }
     }
 
@@ -234,53 +259,58 @@ public class CalloutHttpPolicy {
             TemplateEngine tplEngine = context.getTemplateEngine();
 
             // Put response into template variable for EL
-            tplEngine.getTemplateContext()
-                    .setVariable(TEMPLATE_VARIABLE, new CalloutResponse(httpResponse, body.toString()));
+            final CalloutResponse calloutResponse = new CalloutResponse(httpResponse, body.toString());
 
             // Close HTTP client
             httpClient.close();
 
-            // Process callout response
-            boolean exit = false;
-
-            if (configuration.isExitOnError()) {
-                exit = tplEngine.getValue(configuration.getErrorCondition(), Boolean.class);
-            }
-
-            if (!exit) {
-                // Set context variables
-                if (configuration.getVariables() != null) {
-                    configuration.getVariables().forEach(variable -> {
-                        try {
-                            String extValue = (variable.getValue() != null) ?
-                                    tplEngine.getValue(variable.getValue(), String.class) : null;
-
-                            context.setAttribute(variable.getName(), extValue);
-                        } catch (Exception ex) {
-                            // Do nothing
-                        }
-                    });
-                }
-
+            if (!configuration.isFireAndForget()) {
+                // Variables and exit on error are only managed if the fire & forget is disabled.
                 tplEngine.getTemplateContext()
-                        .setVariable(TEMPLATE_VARIABLE, null);
+                        .setVariable(TEMPLATE_VARIABLE, calloutResponse);
 
-                // Finally continue chaining
-                onSuccess.accept(null);
-            } else {
-                String errorContent = configuration.getErrorContent();
-                try {
-                    errorContent = tplEngine.getValue(configuration.getErrorContent(), String.class);
-                } catch (Exception ex) {
-                    // Do nothing
+                // Process callout response
+                boolean exit = false;
+
+                if (configuration.isExitOnError()) {
+                    exit = tplEngine.getValue(configuration.getErrorCondition(), Boolean.class);
                 }
 
-                if (errorContent == null || errorContent.isEmpty()) {
-                    errorContent = "Request is terminated.";
-                }
+                if (!exit) {
+                    // Set context variables
+                    if (configuration.getVariables() != null) {
+                        configuration.getVariables().forEach(variable -> {
+                            try {
+                                String extValue = (variable.getValue() != null) ?
+                                        tplEngine.getValue(variable.getValue(), String.class) : null;
 
-                onError.accept(PolicyResult
-                        .failure(CALLOUT_EXIT_ON_ERROR, configuration.getErrorStatusCode(), errorContent));
+                                context.setAttribute(variable.getName(), extValue);
+                            } catch (Exception ex) {
+                                // Do nothing
+                            }
+                        });
+                    }
+
+                    tplEngine.getTemplateContext()
+                            .setVariable(TEMPLATE_VARIABLE, null);
+
+                    // Finally continue chaining
+                    onSuccess.accept(null);
+                } else {
+                    String errorContent = configuration.getErrorContent();
+                    try {
+                        errorContent = tplEngine.getValue(configuration.getErrorContent(), String.class);
+                    } catch (Exception ex) {
+                        // Do nothing
+                    }
+
+                    if (errorContent == null || errorContent.isEmpty()) {
+                        errorContent = "Request is terminated.";
+                    }
+
+                    onError.accept(PolicyResult
+                            .failure(CALLOUT_EXIT_ON_ERROR, configuration.getErrorStatusCode(), errorContent));
+                }
             }
         });
     }

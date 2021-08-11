@@ -15,6 +15,7 @@
  */
 package io.gravitee.policy;
 
+import com.github.tomakehurst.wiremock.extension.Parameters;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import io.gravitee.common.http.HttpMethod;
 import io.gravitee.common.http.HttpStatusCode;
@@ -49,6 +50,7 @@ import java.util.concurrent.TimeUnit;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
@@ -62,7 +64,7 @@ import static org.mockito.Mockito.*;
 public class CalloutHttpPolicyTest {
 
     @Rule
-    public WireMockRule wireMockRule = new WireMockRule(wireMockConfig().dynamicPort());
+    public WireMockRule wireMockRule = new WireMockRule(wireMockConfig().dynamicPort().extensions(CountDownWebhook.class));
 
     @Mock
     private ExecutionContext executionContext;
@@ -97,6 +99,7 @@ public class CalloutHttpPolicyTest {
             }
         };
         when(executionContext.request()).thenReturn(request);
+        CountDownWebhook.lock = null;
     }
 
     @Test
@@ -199,6 +202,75 @@ public class CalloutHttpPolicyTest {
     }
 
     @Test
+    public void shouldProcessPostRequest() throws Exception {
+        stubFor(post(urlEqualTo("/"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("{\"key\": \"value\"}")));
+
+        when(configuration.getMethod()).thenReturn(HttpMethod.POST);
+        when(configuration.getBody()).thenReturn("a body");
+        when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
+
+        final CountDownLatch lock = new CountDownLatch(1);
+        this.policyChain = spy(new CountDownPolicyChain(lock));
+
+        new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
+
+        lock.await(1000, TimeUnit.MILLISECONDS);
+
+        verify(policyChain, times(1)).doNext(request, response);
+
+        verify(postRequestedFor(urlEqualTo("/")).withRequestBody(equalTo("a body")));
+    }
+
+    @Test
+    public void shouldProcessPostRequest_nullBody() throws Exception {
+        stubFor(post(urlEqualTo("/"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("{\"key\": \"value\"}")));
+
+        when(configuration.getMethod()).thenReturn(HttpMethod.POST);
+        when(configuration.getBody()).thenReturn(null);
+        when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
+
+        final CountDownLatch lock = new CountDownLatch(1);
+        this.policyChain = spy(new CountDownPolicyChain(lock));
+
+        new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
+
+        lock.await(1000, TimeUnit.MILLISECONDS);
+
+        verify(policyChain, times(1)).doNext(request, response);
+
+        verify(postRequestedFor(urlEqualTo("/")));
+    }
+
+    @Test
+    public void shouldProcessPostRequest_nullEvaluatedBody() throws Exception {
+        stubFor(post(urlEqualTo("/"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("{\"key\": \"value\"}")));
+
+        when(configuration.getMethod()).thenReturn(HttpMethod.POST);
+        when(configuration.getBody()).thenReturn("{#itIsResolvedToNull}");
+        when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
+
+        final CountDownLatch lock = new CountDownLatch(1);
+        this.policyChain = spy(new CountDownPolicyChain(lock));
+
+        new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
+
+        lock.await(1000, TimeUnit.MILLISECONDS);
+
+        verify(policyChain, times(1)).doNext(request, response);
+
+        verify(postRequestedFor(urlEqualTo("/")));
+    }
+
+    @Test
     public void shouldProcessRequest_withMainRequestVariable_issue4277() throws Exception {
         when(configuration.getScope()).thenReturn(PolicyScope.REQUEST);
         executeProcess_withMainRequestVariable();
@@ -260,7 +332,7 @@ public class CalloutHttpPolicyTest {
 
         verify(policyChain, times(1)).failWith(argThat(
                 result -> result.statusCode() == HttpStatusCode.INTERNAL_SERVER_ERROR_500 &&
-                result.message().equals("This is an error content")));
+                        result.message().equals("This is an error content")));
 
         verify(getRequestedFor(urlEqualTo("/")));
     }
@@ -295,7 +367,7 @@ public class CalloutHttpPolicyTest {
     public void shouldIgnoreConnectionError() throws Exception {
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.isExitOnError()).thenReturn(false);
-        when(configuration.getUrl()).thenReturn("http://"+ UUID.randomUUID() +":8080/");
+        when(configuration.getUrl()).thenReturn("http://" + UUID.randomUUID() + ":8080/");
 
         final CountDownLatch lock = new CountDownLatch(1);
         this.policyChain = spy(new CountDownPolicyChain(lock));
@@ -307,6 +379,64 @@ public class CalloutHttpPolicyTest {
         verify(policyChain, never()).failWith(any());
         verify(policyChain).doNext(any(), any());
     }
+
+    @Test
+    public void shouldFireAndForget_noVariableSet() throws Exception {
+        final CountDownLatch lock = new CountDownLatch(1);
+        CountDownWebhook.lock = lock;
+        stubFor(get(urlEqualTo("/"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withBody("{\"key\": \"value\"}")
+                        .withHeader("Header", "value1", "value2"))
+                .withPostServeAction("CountDownWebhook", Parameters.empty())
+        );
+
+        when(configuration.isFireAndForget()).thenReturn(true);
+        when(configuration.getMethod()).thenReturn(HttpMethod.GET);
+        when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
+
+        this.policyChain = spy(new NoOpPolicyChain());
+
+        new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
+
+        assertTrue(lock.await(1000, TimeUnit.MILLISECONDS));
+
+        verify(policyChain, never()).failWith(any());
+        verify(policyChain).doNext(any(), any());
+        // We do not expect variables to be set in fire & forget mode.
+        verify(executionContext, never()).setAttribute(anyString(), anyString());
+        verify(getRequestedFor(urlEqualTo("/")));
+    }
+
+    @Test
+    public void shouldFireAndForget_noExitOnError() throws Exception {
+        final CountDownLatch lock = new CountDownLatch(1);
+        CountDownWebhook.lock = lock;
+
+        stubFor(get(urlEqualTo("/"))
+                .willReturn(aResponse()
+                        .withStatus(400))
+                .withPostServeAction("CountDownWebhook", Parameters.empty()));
+
+        when(configuration.isFireAndForget()).thenReturn(true);
+        when(configuration.getMethod()).thenReturn(HttpMethod.GET);
+        when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
+
+        this.policyChain = spy(new NoOpPolicyChain());
+
+        new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
+
+        lock.await(1000, TimeUnit.MILLISECONDS);
+
+        verify(policyChain, never()).failWith(any());
+        verify(policyChain).doNext(any(), any());
+        verify(getRequestedFor(urlEqualTo("/")));
+        verify(configuration, never()).isExitOnError();
+    }
+
+
+
 
     class CountDownPolicyChain implements PolicyChain {
         private final CountDownLatch lock;
@@ -328,6 +458,25 @@ public class CalloutHttpPolicyTest {
         @Override
         public void streamFailWith(PolicyResult policyResult) {
             lock.countDown();
+        }
+    }
+
+
+    class NoOpPolicyChain implements PolicyChain {
+
+        @Override
+        public void doNext(Request request, Response response) {
+
+        }
+
+        @Override
+        public void failWith(PolicyResult policyResult) {
+
+        }
+
+        @Override
+        public void streamFailWith(PolicyResult policyResult) {
+
         }
     }
 }

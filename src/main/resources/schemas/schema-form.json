@@ -63,6 +63,12 @@
         }
       }
     },
+    "fireAndForget": {
+      "title": "Fire & forget",
+      "description": "Make the http call without expecting any response. When activating this mode, context variables and exit on error are useless.",
+      "type" : "boolean",
+      "default": false
+    },
     "variables" : {
       "type" : "array",
       "title": "Context variables",
@@ -85,13 +91,31 @@
       "required": [
         "name",
         "value"
-      ]
+      ],
+      "x-schema-form": {
+        "hidden": [
+          {
+            "$eq": {
+              "fireAndForget": true
+            }
+          }
+        ]
+      }
     },
     "exitOnError": {
       "title": "Exit on error",
       "description": "Terminate the request if the error condition is true",
       "type" : "boolean",
-      "default": false
+      "default": false,
+      "x-schema-form": {
+        "hidden": [
+          {
+            "$eq": {
+              "fireAndForget": true
+            }
+          }
+        ]
+      }
     },
     "errorCondition": {
       "title": "Error condition",
@@ -99,7 +123,14 @@
       "default": "{#calloutResponse.status >= 400 and #calloutResponse.status <= 599}",
       "type" : "string",
       "x-schema-form": {
-        "expression-language": true
+        "expression-language": true,
+        "hidden": [
+         {
+            "$eq": {
+              "fireAndForget": true
+            }
+          }
+        ]
       }
     },
     "errorStatusCode": {
@@ -206,7 +237,14 @@
           "504": "504 - GATEWAY_TIMEOUT",
           "505": "505 - HTTP_VERSION_NOT_SUPPORTED",
           "507": "507 - INSUFFICIENT_STORAGE"
-        }
+        },
+        "hidden": [
+          {
+            "$eq": {
+              "fireAndForget": true
+            }
+          }
+        ]
       }
     },
     "errorContent": {
@@ -223,7 +261,14 @@
           "autoCloseTags": true,
           "mode": "javascript"
         },
-        "expression-language": true
+        "expression-language": true,
+        "hidden": [
+          {
+            "$eq": {
+              "fireAndForget": true
+            }
+          }
+        ]
       }
     }
   },"required": [
