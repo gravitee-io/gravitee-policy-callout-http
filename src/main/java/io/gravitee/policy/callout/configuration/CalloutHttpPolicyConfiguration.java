@@ -42,6 +42,8 @@ public class CalloutHttpPolicyConfiguration implements PolicyConfiguration {
 
     private boolean exitOnError;
 
+    private boolean fireAndForget;
+
     private String errorCondition;
 
     private int errorStatusCode = HttpStatusCode.INTERNAL_SERVER_ERROR_500;
@@ -136,5 +138,13 @@ public class CalloutHttpPolicyConfiguration implements PolicyConfiguration {
 
     public void setErrorContent(String errorContent) {
         this.errorContent = errorContent;
+    }
+
+    public boolean isFireAndForget() {
+        return fireAndForget;
+    }
+
+    public void setFireAndForget(boolean fireAndForget) {
+        this.fireAndForget = fireAndForget;
     }
 }
