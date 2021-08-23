@@ -1,21 +1,36 @@
 {
-  "type" : "object",
-  "id" : "urn:jsonschema:io:gravitee:policy:callout:configuration:CalloutHttpPolicyConfiguration",
-  "properties" : {
-    "scope" : {
+  "type": "object",
+  "id": "urn:jsonschema:io:gravitee:policy:callout:configuration:CalloutHttpPolicyConfiguration",
+  "properties": {
+    "scope": {
       "title": "Scope",
       "description": "Execute policy on <strong>request</strong> (HEAD) phase, <strong>response</strong> (HEAD) phase, <strong>request_content</strong> (includes payload) phase, <strong>response content</strong> (includes payload) phase.",
-      "type" : "string",
+      "type": "string",
       "default": "REQUEST",
-      "enum" : [ "REQUEST", "RESPONSE", "REQUEST_CONTENT", "RESPONSE_CONTENT" ],
+      "enum": [
+        "REQUEST",
+        "RESPONSE",
+        "REQUEST_CONTENT",
+        "RESPONSE_CONTENT"
+      ],
       "deprecated": true
     },
-    "method" : {
+    "method": {
       "title": "HTTP Method",
       "description": "HTTP method to invoke the endpoint.",
-      "type" : "string",
+      "type": "string",
       "default": "GET",
-      "enum" : [ "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "CONNECT", "OPTIONS", "TRACE" ]
+      "enum": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE",
+        "PATCH",
+        "HEAD",
+        "CONNECT",
+        "OPTIONS",
+        "TRACE"
+      ]
     },
     "useSystemProxy": {
       "title": "Use system proxy",
@@ -24,23 +39,23 @@
     },
     "url": {
       "title": "URL",
-      "type" : "string"
+      "type": "string"
     },
-    "headers" : {
-      "type" : "array",
+    "headers": {
+      "type": "array",
       "title": "Request Headers",
-      "items" : {
-        "type" : "object",
-        "id" : "urn:jsonschema:io:gravitee:policy:callout:configuration:HttpHeader",
+      "items": {
+        "type": "object",
+        "id": "urn:jsonschema:io:gravitee:policy:callout:configuration:HttpHeader",
         "title": "Header",
-        "properties" : {
-          "name" : {
+        "properties": {
+          "name": {
             "title": "Name",
-            "type" : "string"
+            "type": "string"
           },
-          "value" : {
+          "value": {
             "title": "Value",
-            "type" : "string"
+            "type": "string"
           }
         }
       },
@@ -49,9 +64,9 @@
         "value"
       ]
     },
-    "body" : {
+    "body": {
       "title": "Request body",
-      "type" : "string",
+      "type": "string",
       "x-schema-form": {
         "type": "codemirror",
         "codemirrorOptions": {
@@ -66,24 +81,24 @@
     "fireAndForget": {
       "title": "Fire & forget",
       "description": "Make the http call without expecting any response. When activating this mode, context variables and exit on error are useless.",
-      "type" : "boolean",
+      "type": "boolean",
       "default": false
     },
-    "variables" : {
-      "type" : "array",
+    "variables": {
+      "type": "array",
       "title": "Context variables",
-      "items" : {
-        "type" : "object",
-        "id" : "urn:jsonschema:io:gravitee:policy:callout:configuration:Variable",
+      "items": {
+        "type": "object",
+        "id": "urn:jsonschema:io:gravitee:policy:callout:configuration:Variable",
         "title": "Variable",
-        "properties" : {
-          "name" : {
+        "properties": {
+          "name": {
             "title": "Name",
-            "type" : "string"
+            "type": "string"
           },
-          "value" : {
+          "value": {
             "title": "Value",
-            "type" : "string",
+            "type": "string",
             "default": "{#jsonPath(#calloutResponse.content, '$.field')}"
           }
         }
@@ -105,7 +120,7 @@
     "exitOnError": {
       "title": "Exit on error",
       "description": "Terminate the request if the error condition is true",
-      "type" : "boolean",
+      "type": "boolean",
       "default": false,
       "x-schema-form": {
         "hidden": [
@@ -121,11 +136,11 @@
       "title": "Error condition",
       "description": "The condition which will be verified to end the request (support EL).",
       "default": "{#calloutResponse.status >= 400 and #calloutResponse.status <= 599}",
-      "type" : "string",
+      "type": "string",
       "x-schema-form": {
         "expression-language": true,
         "hidden": [
-         {
+          {
             "$eq": {
               "fireAndForget": true
             }
@@ -136,7 +151,7 @@
     "errorStatusCode": {
       "title": "Error status code",
       "description": "HTTP Status Code send to the consumer if the condition is true",
-      "type" : "string",
+      "type": "string",
       "default": "500",
       "enum": [
         "100",
@@ -271,9 +286,10 @@
         ]
       }
     }
-  },"required": [
-      "url",
-      "method",
-      "exitOnError"
+  },
+  "required": [
+    "url",
+    "method",
+    "exitOnError"
   ]
 }
