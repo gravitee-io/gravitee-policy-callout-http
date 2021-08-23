@@ -142,7 +142,8 @@
         "hidden": [
           {
             "$eq": {
-              "fireAndForget": true
+              "fireAndForget": true,
+              "exitOnError": false
             }
           }
         ]
@@ -256,7 +257,8 @@
         "hidden": [
           {
             "$eq": {
-              "fireAndForget": true
+              "fireAndForget": true,
+              "exitOnError": false
             }
           }
         ]
@@ -280,7 +282,8 @@
         "hidden": [
           {
             "$eq": {
-              "fireAndForget": true
+              "fireAndForget": true,
+              "exitOnError": false
             }
           }
         ]
