@@ -266,6 +266,33 @@ public class CalloutHttpPolicyTest {
     }
 
     @Test
+    public void shouldNotProcessRequest_errorConditionThrowException() throws Exception {
+        stubFor(get(urlEqualTo("/"))
+                .willReturn(aResponse()
+                        .withStatus(400)));
+
+        when(configuration.getMethod()).thenReturn(HttpMethod.GET);
+        when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
+        when(configuration.isExitOnError()).thenReturn(true);
+        when(configuration.getErrorCondition()).thenReturn("{#calloutResponse.status.value >= 400}"); // this will generate exception
+        when(configuration.getErrorContent()).thenReturn("This is an error content");
+        when(configuration.getErrorStatusCode()).thenReturn(HttpStatusCode.INTERNAL_SERVER_ERROR_500);
+
+        final CountDownLatch lock = new CountDownLatch(1);
+        this.policyChain = spy(new CountDownPolicyChain(lock));
+
+        new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
+
+        lock.await(1000, TimeUnit.MILLISECONDS);
+
+        verify(policyChain, times(1)).failWith(argThat(
+                result -> result.statusCode() == HttpStatusCode.INTERNAL_SERVER_ERROR_500 &&
+                        result.message().equals("This is an error content")));
+
+        verify(getRequestedFor(urlEqualTo("/")));
+    }
+
+    @Test
     public void shouldProcessRequest_withHeaders() throws Exception {
         stubFor(get(urlEqualTo("/"))
                 .willReturn(aResponse()
