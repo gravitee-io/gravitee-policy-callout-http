@@ -244,7 +244,12 @@ public class CalloutHttpPolicy {
             boolean exit = false;
 
             if (configuration.isExitOnError()) {
-                exit = tplEngine.getValue(configuration.getErrorCondition(), Boolean.class);
+                try {
+                    exit = tplEngine.getValue(configuration.getErrorCondition(), Boolean.class);
+                } catch (Exception ex) {
+                    LOGGER.warn("Expression '{}' for Error Condition throws an exception, consider error condition as true. (cause: {})", configuration.getErrorCondition(), ex.getMessage());
+                    exit = true;
+                }
             }
 
             if (!exit) {
