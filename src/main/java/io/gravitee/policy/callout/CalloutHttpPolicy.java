@@ -283,9 +283,8 @@ public class CalloutHttpPolicy {
                             try {
                                 String extValue = (variable.getValue() != null) ?
                                         tplEngine.getValue(variable.getValue(), String.class) : null;
-
                                 context.setAttribute(variable.getName(), extValue);
-                            } catch (Exception ex) {
+                            } catch (Throwable ex) {
                                 // Do nothing
                             }
                         });

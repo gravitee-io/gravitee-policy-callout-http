@@ -15,7 +15,7 @@
  */
 package io.gravitee.policy.callout;
 
-import io.gravitee.common.http.HttpHeaders;
+import io.gravitee.gateway.api.http.HttpHeaders;
 import io.vertx.core.http.HttpClientResponse;
 
 /**
@@ -35,10 +35,10 @@ public class CalloutResponse {
     CalloutResponse(final HttpClientResponse response, final String content) {
         this.response = response;
         this.content = content;
-        this.headers = new HttpHeaders(response.headers().size());
+        this.headers = HttpHeaders.create();
 
-        response.headers().names().forEach(headerName ->
-                this.headers.put(headerName, response.headers().getAll(headerName)));
+        response.headers().forEach(header ->
+                this.headers.add(header.getKey(), header.getValue()));
     }
 
     public int getStatus() {
