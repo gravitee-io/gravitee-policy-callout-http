@@ -348,7 +348,7 @@ public class CalloutHttpPolicyTest {
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
         when(configuration.getVariables()).thenReturn(Collections.singletonList(
-                new Variable("my-headers", "{#jsonPath(#calloutResponse.headers, '$.Header')}")));
+                new Variable("my-headers", "{#calloutResponse.headers['Header']}")));
 
         final CountDownLatch lock = new CountDownLatch(1);
         this.policyChain = spy(new CountDownPolicyChain(lock));
