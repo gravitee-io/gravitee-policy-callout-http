@@ -23,5 +23,5 @@ public enum PolicyScope {
     REQUEST,
     RESPONSE,
     REQUEST_CONTENT,
-    RESPONSE_CONTENT
+    RESPONSE_CONTENT,
 }

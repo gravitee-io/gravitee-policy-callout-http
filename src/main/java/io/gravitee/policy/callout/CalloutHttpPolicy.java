@@ -39,13 +39,12 @@ import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.*;
 import io.vertx.core.net.ProxyOptions;
 import io.vertx.core.net.ProxyType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.core.env.Environment;
-
 import java.net.URI;
 import java.util.Objects;
 import java.util.function.Consumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
@@ -65,10 +64,10 @@ public class CalloutHttpPolicy {
      */
     private CalloutHttpPolicyConfiguration configuration;
 
-    private final static String TEMPLATE_VARIABLE = "calloutResponse";
+    private static final String TEMPLATE_VARIABLE = "calloutResponse";
 
-    private final static String REQUEST_TEMPLATE_VARIABLE = "request";
-    private final static String RESPONSE_TEMPLATE_VARIABLE = "response";
+    private static final String REQUEST_TEMPLATE_VARIABLE = "request";
+    private static final String RESPONSE_TEMPLATE_VARIABLE = "response";
 
     /**
      * Create a new CalloutHttp Policy instance based on its associated configuration
@@ -82,7 +81,6 @@ public class CalloutHttpPolicy {
     @OnRequest
     public void onRequest(Request request, Response response, ExecutionContext context, PolicyChain policyChain) {
         if (configuration.getScope() == null || configuration.getScope() == PolicyScope.REQUEST) {
-
             initRequestResponseProperties(context);
 
             doCallout(context, __ -> policyChain.doNext(request, response), policyChain::failWith);
@@ -94,7 +92,6 @@ public class CalloutHttpPolicy {
     @OnResponse
     public void onResponse(Request request, Response response, ExecutionContext context, PolicyChain policyChain) {
         if (configuration.getScope() == PolicyScope.RESPONSE) {
-
             initRequestResponseProperties(context);
 
             doCallout(context, __ -> policyChain.doNext(request, response), policyChain::failWith);
@@ -108,11 +105,15 @@ public class CalloutHttpPolicy {
     }
 
     private void initRequestResponseProperties(ExecutionContext context, String requestContent, String responseContent) {
-        context.getTemplateEngine().getTemplateContext()
-                .setVariable(REQUEST_TEMPLATE_VARIABLE, new EvaluableRequest(context.request(), requestContent));
+        context
+            .getTemplateEngine()
+            .getTemplateContext()
+            .setVariable(REQUEST_TEMPLATE_VARIABLE, new EvaluableRequest(context.request(), requestContent));
 
-        context.getTemplateEngine().getTemplateContext()
-                .setVariable(RESPONSE_TEMPLATE_VARIABLE, new EvaluableResponse(context.response(), responseContent));
+        context
+            .getTemplateEngine()
+            .getTemplateContext()
+            .setVariable(RESPONSE_TEMPLATE_VARIABLE, new EvaluableResponse(context.response(), responseContent));
     }
 
     @OnRequestContent
@@ -135,7 +136,6 @@ public class CalloutHttpPolicy {
 
     private ReadWriteStream createStream(PolicyScope scope, ExecutionContext context, PolicyChain policyChain) {
         return new BufferedReadWriteStream() {
-
             io.gravitee.gateway.api.buffer.Buffer buffer = io.gravitee.gateway.api.buffer.Buffer.buffer();
 
             @Override
@@ -146,17 +146,23 @@ public class CalloutHttpPolicy {
 
             @Override
             public void end() {
-                initRequestResponseProperties(context,
-                        (scope == PolicyScope.REQUEST_CONTENT) ? buffer.toString() : null,
-                        (scope == PolicyScope.RESPONSE_CONTENT) ? buffer.toString() : null);
+                initRequestResponseProperties(
+                    context,
+                    (scope == PolicyScope.REQUEST_CONTENT) ? buffer.toString() : null,
+                    (scope == PolicyScope.RESPONSE_CONTENT) ? buffer.toString() : null
+                );
 
-                doCallout(context, result -> {
-                    if (buffer.length() > 0) {
-                        super.write(buffer);
-                    }
+                doCallout(
+                    context,
+                    result -> {
+                        if (buffer.length() > 0) {
+                            super.write(buffer);
+                        }
 
-                    super.end();
-                }, policyChain::streamFailWith);
+                        super.end();
+                    },
+                    policyChain::streamFailWith
+                );
             }
         };
     }
@@ -172,10 +178,8 @@ public class CalloutHttpPolicy {
             onSuccess.accept(null);
 
             // callBacks need to be replaced because the fire & forget mode does not allow to act on the request / response once the http call as been performed.
-            onSuccessCallback = (aVoid) -> {
-            };
-            onErrorCallback = policyResult -> {
-            };
+            onSuccessCallback = aVoid -> {};
+            onErrorCallback = policyResult -> {};
         } else {
             // Preserve original callback when not in fire & forget mode.
             onSuccessCallback = onSuccess;
@@ -188,9 +192,7 @@ public class CalloutHttpPolicy {
 
             HttpClientOptions options = new HttpClientOptions();
             if (HTTPS_SCHEME.equalsIgnoreCase(target.getScheme())) {
-                options.setSsl(true)
-                        .setTrustAll(true)
-                        .setVerifyHost(false);
+                options.setSsl(true).setTrustAll(true).setVerifyHost(false);
             }
 
             if (configuration.isUseSystemProxy()) {
@@ -200,9 +202,7 @@ public class CalloutHttpPolicy {
 
             HttpClient httpClient = vertx.createHttpClient(options);
 
-            RequestOptions requestOpts = new RequestOptions()
-                    .setAbsoluteURI(url)
-                    .setMethod(convert(configuration.getMethod()));
+            RequestOptions requestOpts = new RequestOptions().setAbsoluteURI(url).setMethod(convert(configuration.getMethod()));
 
             final Future<HttpClientRequest> futureRequest = httpClient.request(requestOpts);
 
@@ -213,29 +213,31 @@ public class CalloutHttpPolicy {
                 final Future<HttpClientResponse> futureResponse;
 
                 if (configuration.getHeaders() != null) {
-                    configuration.getHeaders().forEach(header -> {
-                        try {
-                            String extValue = (header.getValue() != null) ?
-                                    context.getTemplateEngine().convert(header.getValue()) : null;
-                            if (extValue != null) {
-                                httpClientRequest.putHeader(header.getName(), extValue);
+                    configuration
+                        .getHeaders()
+                        .forEach(header -> {
+                            try {
+                                String extValue = (header.getValue() != null)
+                                    ? context.getTemplateEngine().convert(header.getValue())
+                                    : null;
+                                if (extValue != null) {
+                                    httpClientRequest.putHeader(header.getName(), extValue);
+                                }
+                            } catch (Exception ex) {
+                                // Do nothing
                             }
-                        } catch (Exception ex) {
-                            // Do nothing
-                        }
-                    });
+                        });
                 }
 
                 String body = null;
 
                 if (configuration.getBody() != null && !configuration.getBody().isEmpty()) {
                     // Body can be dynamically resolved using el expression.
-                    body = context.getTemplateEngine()
-                            .getValue(configuration.getBody(), String.class);
+                    body = context.getTemplateEngine().getValue(configuration.getBody(), String.class);
                 }
 
                 // Check the resolved body before trying to send it.
-                if(body != null && !body.isEmpty()) {
+                if (body != null && !body.isEmpty()) {
                     httpClientRequest.headers().remove(HttpHeaders.TRANSFER_ENCODING);
                     httpClientRequest.putHeader(HttpHeaders.CONTENT_LENGTH, Integer.toString(body.length()));
                     futureResponse = httpClientRequest.send(Buffer.buffer(body));
@@ -244,17 +246,21 @@ public class CalloutHttpPolicy {
                 }
 
                 futureResponse
-                        .onSuccess(httpResponse -> handleSuccess(context, onSuccessCallback, onErrorCallback, httpClient, httpResponse))
-                        .onFailure(throwable -> handleFailure(onSuccessCallback, onErrorCallback, httpClient, throwable));
+                    .onSuccess(httpResponse -> handleSuccess(context, onSuccessCallback, onErrorCallback, httpClient, httpResponse))
+                    .onFailure(throwable -> handleFailure(onSuccessCallback, onErrorCallback, httpClient, throwable));
             });
-
-
         } catch (Exception ex) {
             onErrorCallback.accept(PolicyResult.failure(CALLOUT_HTTP_ERROR, "Unable to apply expression language on the configured URL"));
         }
     }
 
-    private void handleSuccess(ExecutionContext context, Consumer<Void> onSuccess, Consumer<PolicyResult> onError, HttpClient httpClient, HttpClientResponse httpResponse) {
+    private void handleSuccess(
+        ExecutionContext context,
+        Consumer<Void> onSuccess,
+        Consumer<PolicyResult> onError,
+        HttpClient httpClient,
+        HttpClientResponse httpResponse
+    ) {
         httpResponse.bodyHandler(body -> {
             TemplateEngine tplEngine = context.getTemplateEngine();
 
@@ -266,8 +272,7 @@ public class CalloutHttpPolicy {
 
             if (!configuration.isFireAndForget()) {
                 // Variables and exit on error are only managed if the fire & forget is disabled.
-                tplEngine.getTemplateContext()
-                        .setVariable(TEMPLATE_VARIABLE, calloutResponse);
+                tplEngine.getTemplateContext().setVariable(TEMPLATE_VARIABLE, calloutResponse);
 
                 // Process callout response
                 boolean exit = false;
@@ -279,19 +284,21 @@ public class CalloutHttpPolicy {
                 if (!exit) {
                     // Set context variables
                     if (configuration.getVariables() != null) {
-                        configuration.getVariables().forEach(variable -> {
-                            try {
-                                String extValue = (variable.getValue() != null) ?
-                                        tplEngine.getValue(variable.getValue(), String.class) : null;
-                                context.setAttribute(variable.getName(), extValue);
-                            } catch (Throwable ex) {
-                                // Do nothing
-                            }
-                        });
+                        configuration
+                            .getVariables()
+                            .forEach(variable -> {
+                                try {
+                                    String extValue = (variable.getValue() != null)
+                                        ? tplEngine.getValue(variable.getValue(), String.class)
+                                        : null;
+                                    context.setAttribute(variable.getName(), extValue);
+                                } catch (Throwable ex) {
+                                    // Do nothing
+                                }
+                            });
                     }
 
-                    tplEngine.getTemplateContext()
-                            .setVariable(TEMPLATE_VARIABLE, null);
+                    tplEngine.getTemplateContext().setVariable(TEMPLATE_VARIABLE, null);
 
                     // Finally continue chaining
                     onSuccess.accept(null);
@@ -307,8 +314,7 @@ public class CalloutHttpPolicy {
                         errorContent = "Request is terminated.";
                     }
 
-                    onError.accept(PolicyResult
-                            .failure(CALLOUT_EXIT_ON_ERROR, configuration.getErrorStatusCode(), errorContent));
+                    onError.accept(PolicyResult.failure(CALLOUT_EXIT_ON_ERROR, configuration.getErrorStatusCode(), errorContent));
                 }
             }
         });
@@ -327,7 +333,6 @@ public class CalloutHttpPolicy {
     }
 
     private ProxyOptions getSystemProxyOptions(Environment environment) {
-
         StringBuilder errors = new StringBuilder();
         ProxyOptions proxyOptions = new ProxyOptions();
 
@@ -356,7 +361,10 @@ public class CalloutHttpPolicy {
         if (errors.length() == 0) {
             return proxyOptions;
         } else {
-            LOGGER.warn("CalloutHttp requires a system proxy to be defined but some configurations are missing or not well defined: {}. Ignoring proxy", errors);
+            LOGGER.warn(
+                "CalloutHttp requires a system proxy to be defined but some configurations are missing or not well defined: {}. Ignoring proxy",
+                errors
+            );
             return null;
         }
     }
