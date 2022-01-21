@@ -15,6 +15,15 @@
  */
 package io.gravitee.policy;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.verify;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verify;
+
 import com.github.tomakehurst.wiremock.extension.Parameters;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import io.gravitee.common.http.HttpMethod;
@@ -33,6 +42,10 @@ import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
 import io.gravitee.policy.callout.configuration.PolicyScope;
 import io.gravitee.policy.callout.configuration.Variable;
 import io.vertx.core.Vertx;
+import java.util.Collections;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Rule;
@@ -41,20 +54,6 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 import org.springframework.core.env.Environment;
-
-import java.util.Collections;
-import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
-import static com.github.tomakehurst.wiremock.client.WireMock.verify;
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.*;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
@@ -106,10 +105,7 @@ public class CalloutHttpPolicyTest {
     @Ignore
     public void shouldNotProcessRequest_invalidTarget() throws Exception {
         final String invalidTarget = "http://tsohlacollocalhost:" + wireMockRule.port() + '/';
-        stubFor(get(urlEqualTo(invalidTarget))
-                .willReturn(aResponse()
-                        .withStatus(500)
-                        .withBody("{\"key\": \"value\"}")));
+        stubFor(get(urlEqualTo(invalidTarget)).willReturn(aResponse().withStatus(500).withBody("{\"key\": \"value\"}")));
 
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.getUrl()).thenReturn(invalidTarget);
@@ -121,16 +117,12 @@ public class CalloutHttpPolicyTest {
 
         lock.await(1000, TimeUnit.MILLISECONDS);
 
-        verify(policyChain, times(1)).failWith(argThat(
-                result -> result.statusCode() == HttpStatusCode.INTERNAL_SERVER_ERROR_500));
+        verify(policyChain, times(1)).failWith(argThat(result -> result.statusCode() == HttpStatusCode.INTERNAL_SERVER_ERROR_500));
     }
 
     @Test
     public void shouldProcessRequest_emptyVariable() throws Exception {
-        stubFor(get(urlEqualTo("/"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody("{\"key\": \"value\"}")));
+        stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"value\"}")));
 
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
@@ -149,10 +141,7 @@ public class CalloutHttpPolicyTest {
 
     @Test
     public void shouldProcessRequest_withProxy() throws Exception {
-        stubFor(get(urlEqualTo("/"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody("{\"key\": \"value\"}")));
+        stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"value\"}")));
 
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.isUseSystemProxy()).thenReturn(true);
@@ -178,15 +167,12 @@ public class CalloutHttpPolicyTest {
 
     @Test
     public void shouldProcessRequest_withVariable() throws Exception {
-        stubFor(get(urlEqualTo("/"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody("{\"key\": \"value\"}")));
+        stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"value\"}")));
 
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
-        when(configuration.getVariables()).thenReturn(Collections.singletonList(
-                new Variable("my-var", "{#jsonPath(#calloutResponse.content, '$.key')}")));
+        when(configuration.getVariables())
+            .thenReturn(Collections.singletonList(new Variable("my-var", "{#jsonPath(#calloutResponse.content, '$.key')}")));
 
         final CountDownLatch lock = new CountDownLatch(1);
         this.policyChain = spy(new CountDownPolicyChain(lock));
@@ -203,10 +189,7 @@ public class CalloutHttpPolicyTest {
 
     @Test
     public void shouldProcessPostRequest() throws Exception {
-        stubFor(post(urlEqualTo("/"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody("{\"key\": \"value\"}")));
+        stubFor(post(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"value\"}")));
 
         when(configuration.getMethod()).thenReturn(HttpMethod.POST);
         when(configuration.getBody()).thenReturn("a body");
@@ -226,10 +209,7 @@ public class CalloutHttpPolicyTest {
 
     @Test
     public void shouldProcessPostRequest_nullBody() throws Exception {
-        stubFor(post(urlEqualTo("/"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody("{\"key\": \"value\"}")));
+        stubFor(post(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"value\"}")));
 
         when(configuration.getMethod()).thenReturn(HttpMethod.POST);
         when(configuration.getBody()).thenReturn(null);
@@ -249,10 +229,7 @@ public class CalloutHttpPolicyTest {
 
     @Test
     public void shouldProcessPostRequest_nullEvaluatedBody() throws Exception {
-        stubFor(post(urlEqualTo("/"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody("{\"key\": \"value\"}")));
+        stubFor(post(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"value\"}")));
 
         when(configuration.getMethod()).thenReturn(HttpMethod.POST);
         when(configuration.getBody()).thenReturn("{#itIsResolvedToNull}");
@@ -283,15 +260,12 @@ public class CalloutHttpPolicyTest {
     }
 
     private void executeProcess_withMainRequestVariable() throws InterruptedException {
-        stubFor(get(urlEqualTo("/content"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody("{\"key\": \"value\"}")));
+        stubFor(get(urlEqualTo("/content")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"value\"}")));
 
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/{#request.params['param']}");
-        when(configuration.getVariables()).thenReturn(Collections.singletonList(
-                new Variable("my-var", "{#jsonPath(#calloutResponse.content, '$.key')}")));
+        when(configuration.getVariables())
+            .thenReturn(Collections.singletonList(new Variable("my-var", "{#jsonPath(#calloutResponse.content, '$.key')}")));
 
         final CountDownLatch lock = new CountDownLatch(1);
         this.policyChain = spy(new CountDownPolicyChain(lock));
@@ -312,9 +286,7 @@ public class CalloutHttpPolicyTest {
 
     @Test
     public void shouldNotProcessRequest_errorCondition() throws Exception {
-        stubFor(get(urlEqualTo("/"))
-                .willReturn(aResponse()
-                        .withStatus(400)));
+        stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(400)));
 
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
@@ -330,25 +302,27 @@ public class CalloutHttpPolicyTest {
 
         lock.await(1000, TimeUnit.MILLISECONDS);
 
-        verify(policyChain, times(1)).failWith(argThat(
-                result -> result.statusCode() == HttpStatusCode.INTERNAL_SERVER_ERROR_500 &&
-                        result.message().equals("This is an error content")));
+        verify(policyChain, times(1))
+            .failWith(
+                argThat(result ->
+                    result.statusCode() == HttpStatusCode.INTERNAL_SERVER_ERROR_500 && result.message().equals("This is an error content")
+                )
+            );
 
         verify(getRequestedFor(urlEqualTo("/")));
     }
 
     @Test
     public void shouldProcessRequest_withHeaders() throws Exception {
-        stubFor(get(urlEqualTo("/"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody("{\"key\": \"value\"}")
-                        .withHeader("Header", "value1", "value2")));
+        stubFor(
+            get(urlEqualTo("/"))
+                .willReturn(aResponse().withStatus(200).withBody("{\"key\": \"value\"}").withHeader("Header", "value1", "value2"))
+        );
 
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
-        when(configuration.getVariables()).thenReturn(Collections.singletonList(
-                new Variable("my-headers", "{#calloutResponse.headers['Header']}")));
+        when(configuration.getVariables())
+            .thenReturn(Collections.singletonList(new Variable("my-headers", "{#calloutResponse.headers['Header']}")));
 
         final CountDownLatch lock = new CountDownLatch(1);
         this.policyChain = spy(new CountDownPolicyChain(lock));
@@ -384,11 +358,9 @@ public class CalloutHttpPolicyTest {
     public void shouldFireAndForget_noVariableSet() throws Exception {
         final CountDownLatch lock = new CountDownLatch(1);
         CountDownWebhook.lock = lock;
-        stubFor(get(urlEqualTo("/"))
-                .willReturn(aResponse()
-                        .withStatus(200)
-                        .withBody("{\"key\": \"value\"}")
-                        .withHeader("Header", "value1", "value2"))
+        stubFor(
+            get(urlEqualTo("/"))
+                .willReturn(aResponse().withStatus(200).withBody("{\"key\": \"value\"}").withHeader("Header", "value1", "value2"))
                 .withPostServeAction("CountDownWebhook", Parameters.empty())
         );
 
@@ -414,10 +386,7 @@ public class CalloutHttpPolicyTest {
         final CountDownLatch lock = new CountDownLatch(1);
         CountDownWebhook.lock = lock;
 
-        stubFor(get(urlEqualTo("/"))
-                .willReturn(aResponse()
-                        .withStatus(400))
-                .withPostServeAction("CountDownWebhook", Parameters.empty()));
+        stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(400)).withPostServeAction("CountDownWebhook", Parameters.empty()));
 
         when(configuration.isFireAndForget()).thenReturn(true);
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
@@ -435,10 +404,8 @@ public class CalloutHttpPolicyTest {
         verify(configuration, never()).isExitOnError();
     }
 
-
-
-
     class CountDownPolicyChain implements PolicyChain {
+
         private final CountDownLatch lock;
 
         public CountDownPolicyChain(CountDownLatch lock) {
@@ -461,22 +428,15 @@ public class CalloutHttpPolicyTest {
         }
     }
 
-
     class NoOpPolicyChain implements PolicyChain {
 
         @Override
-        public void doNext(Request request, Response response) {
-
-        }
+        public void doNext(Request request, Response response) {}
 
         @Override
-        public void failWith(PolicyResult policyResult) {
-
-        }
+        public void failWith(PolicyResult policyResult) {}
 
         @Override
-        public void streamFailWith(PolicyResult policyResult) {
-
-        }
+        public void streamFailWith(PolicyResult policyResult) {}
     }
 }

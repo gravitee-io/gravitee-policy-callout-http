@@ -21,7 +21,6 @@ import com.github.tomakehurst.wiremock.extension.Extension;
 import com.github.tomakehurst.wiremock.extension.Parameters;
 import com.github.tomakehurst.wiremock.extension.PostServeAction;
 import com.github.tomakehurst.wiremock.stubbing.ServeEvent;
-
 import java.util.concurrent.CountDownLatch;
 
 public class CountDownWebhook extends PostServeAction {
@@ -40,7 +39,7 @@ public class CountDownWebhook extends PostServeAction {
     @Override
     public void doAction(ServeEvent serveEvent, Admin admin, Parameters parameters) {
         if (lock != null) {
-           lock.countDown();
+            lock.countDown();
         }
     }
 }

@@ -37,8 +37,7 @@ public class CalloutResponse {
         this.content = content;
         this.headers = HttpHeaders.create();
 
-        response.headers().forEach(header ->
-                this.headers.add(header.getKey(), header.getValue()));
+        response.headers().forEach(header -> this.headers.add(header.getKey(), header.getValue()));
     }
 
     public int getStatus() {

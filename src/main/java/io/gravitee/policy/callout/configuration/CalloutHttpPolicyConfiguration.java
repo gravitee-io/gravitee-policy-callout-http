@@ -18,7 +18,6 @@ package io.gravitee.policy.callout.configuration;
 import io.gravitee.common.http.HttpMethod;
 import io.gravitee.common.http.HttpStatusCode;
 import io.gravitee.policy.api.PolicyConfiguration;
-
 import java.util.ArrayList;
 import java.util.List;
 
