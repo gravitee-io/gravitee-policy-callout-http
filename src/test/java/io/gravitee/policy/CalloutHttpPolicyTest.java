@@ -35,6 +35,7 @@ import io.gravitee.gateway.api.ExecutionContext;
 import io.gravitee.gateway.api.Request;
 import io.gravitee.gateway.api.RequestWrapper;
 import io.gravitee.gateway.api.Response;
+import io.gravitee.node.api.configuration.Configuration;
 import io.gravitee.policy.api.PolicyChain;
 import io.gravitee.policy.api.PolicyResult;
 import io.gravitee.policy.callout.CalloutHttpPolicy;
@@ -53,7 +54,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
-import org.springframework.core.env.Environment;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
@@ -80,13 +80,13 @@ public class CalloutHttpPolicyTest {
     private CalloutHttpPolicyConfiguration configuration;
 
     @Mock
-    private Environment env;
+    private Configuration nodeConfiguration;
 
     @Before
     public void init() {
-        reset(configuration, executionContext, request, response, env);
+        reset(configuration, executionContext, request, response, nodeConfiguration);
         when(executionContext.getComponent(Vertx.class)).thenReturn(Vertx.vertx());
-        when(executionContext.getComponent(Environment.class)).thenReturn(env);
+        when(executionContext.getComponent(io.gravitee.node.api.configuration.Configuration.class)).thenReturn(nodeConfiguration);
         when(executionContext.getTemplateEngine()).thenReturn(new SpelTemplateEngineFactory().templateEngine());
 
         Request request = new RequestWrapper(mock(Request.class)) {
@@ -147,9 +147,6 @@ public class CalloutHttpPolicyTest {
         when(configuration.isUseSystemProxy()).thenReturn(true);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
 
-        when(env.containsProperty(anyString())).thenReturn(true);
-        when(env.getProperty(anyString())).thenReturn("localhost-proxy", "3129", "HTTP", "null", "null");
-
         final CountDownLatch lock = new CountDownLatch(1);
         this.policyChain = spy(new CountDownPolicyChain(lock));
 
@@ -158,11 +155,11 @@ public class CalloutHttpPolicyTest {
         lock.await(1000, TimeUnit.MILLISECONDS);
 
         verify(policyChain).doNext(request, response);
-        verify(env).getProperty("system.proxy.port");
-        verify(env).getProperty("system.proxy.type");
-        verify(env).getProperty("system.proxy.host");
-        verify(env).getProperty("system.proxy.username");
-        verify(env).getProperty("system.proxy.password");
+        verify(nodeConfiguration).getProperty("system.proxy.port");
+        verify(nodeConfiguration).getProperty("system.proxy.type");
+        verify(nodeConfiguration).getProperty("system.proxy.host");
+        verify(nodeConfiguration).getProperty("system.proxy.username");
+        verify(nodeConfiguration).getProperty("system.proxy.password");
     }
 
     @Test

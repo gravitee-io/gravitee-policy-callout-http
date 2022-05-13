@@ -15,6 +15,8 @@
  */
 package io.gravitee.policy.callout;
 
+import static io.gravitee.common.util.VertxProxyOptionsUtils.*;
+
 import io.gravitee.el.TemplateEngine;
 import io.gravitee.gateway.api.ExecutionContext;
 import io.gravitee.gateway.api.Request;
@@ -24,6 +26,7 @@ import io.gravitee.gateway.api.el.EvaluableResponse;
 import io.gravitee.gateway.api.stream.BufferedReadWriteStream;
 import io.gravitee.gateway.api.stream.ReadWriteStream;
 import io.gravitee.gateway.api.stream.SimpleReadWriteStream;
+import io.gravitee.node.api.configuration.Configuration;
 import io.gravitee.policy.api.PolicyChain;
 import io.gravitee.policy.api.PolicyResult;
 import io.gravitee.policy.api.annotations.OnRequest;
@@ -33,18 +36,13 @@ import io.gravitee.policy.api.annotations.OnResponseContent;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
 import io.gravitee.policy.callout.configuration.PolicyScope;
 import io.vertx.core.Future;
-import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.*;
-import io.vertx.core.net.ProxyOptions;
-import io.vertx.core.net.ProxyType;
 import java.net.URI;
-import java.util.Objects;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.env.Environment;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
@@ -59,15 +57,15 @@ public class CalloutHttpPolicy {
     private static final String CALLOUT_EXIT_ON_ERROR = "CALLOUT_EXIT_ON_ERROR";
     private static final String CALLOUT_HTTP_ERROR = "CALLOUT_HTTP_ERROR";
 
-    /**
-     * The associated configuration to this CalloutHttp Policy
-     */
-    private CalloutHttpPolicyConfiguration configuration;
-
     private static final String TEMPLATE_VARIABLE = "calloutResponse";
 
     private static final String REQUEST_TEMPLATE_VARIABLE = "request";
     private static final String RESPONSE_TEMPLATE_VARIABLE = "response";
+
+    /**
+     * The associated configuration to this CalloutHttp Policy
+     */
+    private final CalloutHttpPolicyConfiguration configuration;
 
     /**
      * Create a new CalloutHttp Policy instance based on its associated configuration
@@ -196,8 +194,15 @@ public class CalloutHttpPolicy {
             }
 
             if (configuration.isUseSystemProxy()) {
-                Environment env = context.getComponent(Environment.class);
-                options.setProxyOptions(getSystemProxyOptions(env));
+                Configuration configuration = context.getComponent(Configuration.class);
+                try {
+                    setSystemProxy(options, configuration);
+                } catch (IllegalStateException e) {
+                    LOGGER.warn(
+                        "CalloutHttp requires a system proxy to be defined but some configurations are missing or not well defined: {}. Ignoring proxy",
+                        e.getMessage()
+                    );
+                }
             }
 
             HttpClient httpClient = vertx.createHttpClient(options);
@@ -330,43 +335,6 @@ public class CalloutHttpPolicy {
         }
 
         httpClient.close();
-    }
-
-    private ProxyOptions getSystemProxyOptions(Environment environment) {
-        StringBuilder errors = new StringBuilder();
-        ProxyOptions proxyOptions = new ProxyOptions();
-
-        // System proxy must be well configured. Check that this is the case.
-        if (environment.containsProperty("system.proxy.host")) {
-            proxyOptions.setHost(environment.getProperty("system.proxy.host"));
-        } else {
-            errors.append("'system.proxy.host' ");
-        }
-
-        try {
-            proxyOptions.setPort(Integer.parseInt(Objects.requireNonNull(environment.getProperty("system.proxy.port"))));
-        } catch (Exception e) {
-            errors.append("'system.proxy.port' [").append(environment.getProperty("system.proxy.port")).append("] ");
-        }
-
-        try {
-            proxyOptions.setType(ProxyType.valueOf(environment.getProperty("system.proxy.type")));
-        } catch (Exception e) {
-            errors.append("'system.proxy.type' [").append(environment.getProperty("system.proxy.type")).append("] ");
-        }
-
-        proxyOptions.setUsername(environment.getProperty("system.proxy.username"));
-        proxyOptions.setPassword(environment.getProperty("system.proxy.password"));
-
-        if (errors.length() == 0) {
-            return proxyOptions;
-        } else {
-            LOGGER.warn(
-                "CalloutHttp requires a system proxy to be defined but some configurations are missing or not well defined: {}. Ignoring proxy",
-                errors
-            );
-            return null;
-        }
     }
 
     private HttpMethod convert(io.gravitee.common.http.HttpMethod httpMethod) {

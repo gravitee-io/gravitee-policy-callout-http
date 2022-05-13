@@ -34,6 +34,17 @@ processing.
 The result of the callout is placed in a variable called `calloutResponse` and is only available during policy
 execution. If no variable is configured the result of the callout is no longer available.
 
+== Compatibility with APIM
+
+|===
+|Plugin version | APIM version
+
+|2.x and upper                  | 3.18.x to latest
+|1.15.x and upper               | 3.15.x to 3.17.x
+|1.13.x to 1.14.x               | 3.10.x to 3.14.x
+|Up to 1.12.x                   | Up to 3.9.x
+|===
+
 == Configuration
 
 |===
