@@ -1,0 +1,55 @@
+{
+  "id": "my-api",
+  "name": "my-api",
+  "gravitee": "2.0.0",
+  "proxy": {
+    "context_path": "/test",
+    "endpoints": [
+      {
+        "name": "default",
+        "target": "http://localhost:8080/endpoint",
+        "http": {
+          "connectTimeout": 3000,
+          "readTimeout": 60000
+        }
+      }
+    ]
+  },
+  "flows": [
+    {
+      "name": "flow-1",
+      "methods": [
+        "GET"
+      ],
+      "enabled": true,
+      "path-operator": {
+        "path": "/",
+        "operator": "STARTS_WITH"
+      },
+      "pre": [
+        {
+          "name": "Callout HTTP",
+          "description": "",
+          "enabled": true,
+          "policy": "policy-http-callout",
+          "configuration": {
+            "method": "GET",
+            "url": "http://localhost:8089/callout",
+            "scope": "REQUEST",
+            "headers": [
+              {
+                "name": "X-Callout",
+                "value": "calloutHeader"
+              }
+            ],
+            "exitOnError": true,
+            "errorCondition": "{#calloutResponse.status >= 400 and #calloutResponse.status <= 599}",
+            "errorStatusCode": "501",
+            "errorContent": "errorContent"
+          }
+        }
+      ],
+      "post": []
+    }
+  ]
+}
