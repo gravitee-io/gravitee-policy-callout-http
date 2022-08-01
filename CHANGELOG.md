@@ -1,3 +1,10 @@
+## [1.15.1](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/1.15.0...1.15.1) (2022-08-01)
+
+
+### Bug Fixes
+
+* call callout endpoint with proper body when it contains accents ([3032abd](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/3032abd5281c384adeedd32ed63eb1583a469d24))
+
 # [1.15.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/1.14.0...1.15.0) (2022-01-21)
 
 
