@@ -239,7 +239,8 @@ public class CalloutHttpPolicy {
                 // Check the resolved body before trying to send it.
                 if (body != null && !body.isEmpty()) {
                     httpClientRequest.headers().remove(HttpHeaders.TRANSFER_ENCODING);
-                    httpClientRequest.putHeader(HttpHeaders.CONTENT_LENGTH, Integer.toString(body.length()));
+                    // Removing Content-Length header to let VertX automatically set it correctly
+                    httpClientRequest.headers().remove(HttpHeaders.CONTENT_LENGTH);
                     futureResponse = httpClientRequest.send(Buffer.buffer(body));
                 } else {
                     futureResponse = httpClientRequest.send();
