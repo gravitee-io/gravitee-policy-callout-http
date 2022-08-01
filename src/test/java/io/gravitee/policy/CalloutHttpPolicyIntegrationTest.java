@@ -15,12 +15,7 @@
  */
 package io.gravitee.policy;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
-import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.get;
-import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
-import static com.github.tomakehurst.wiremock.client.WireMock.ok;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -35,6 +30,8 @@ import io.gravitee.plugin.policy.PolicyPlugin;
 import io.gravitee.policy.callout.CalloutHttpPolicy;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
 import io.reactivex.observers.TestObserver;
+import io.vertx.core.http.HttpHeaders;
+import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.core.buffer.Buffer;
 import io.vertx.reactivex.ext.web.client.HttpResponse;
 import io.vertx.reactivex.ext.web.client.WebClient;
@@ -101,6 +98,37 @@ class CalloutHttpPolicyIntegrationTest extends AbstractPolicyTest<CalloutHttpPol
 
         wiremock.verify(getRequestedFor(urlPathEqualTo("/endpoint")));
         calloutServer.verify(getRequestedFor(urlPathEqualTo("/callout")).withHeader("X-Callout", equalTo("calloutHeader")));
+    }
+
+    @Test
+    @DisplayName("Should call callout endpoint with proper body when it contains accents")
+    @DeployApi("/apis/callout-http-post-with-accents.json")
+    void shouldDoCalloutAndSetResponseWithAccentAsAttribute(WebClient client) {
+        wiremock.stubFor(post("/endpoint").willReturn(ok("réponse from backend")));
+        calloutServer.stubFor(post("/callout").willReturn(ok("response from callout")));
+
+        final TestObserver<HttpResponse<Buffer>> obs = client
+            .post("/test")
+            .rxSendJsonObject(new JsonObject().put("clé", "value").put("key", "välæur"))
+            .test();
+
+        awaitTerminalEvent(obs);
+        obs
+            .assertComplete()
+            .assertValue(response -> {
+                assertThat(response.statusCode()).isEqualTo(200);
+                assertThat(response.bodyAsString()).isEqualTo("réponse from backend");
+                return true;
+            })
+            .assertNoErrors();
+
+        wiremock.verify(postRequestedFor(urlPathEqualTo("/endpoint")));
+        calloutServer.verify(
+            postRequestedFor(urlPathEqualTo("/callout"))
+                .withoutHeader(HttpHeaders.TRANSFER_ENCODING.toString())
+                .withHeader(HttpHeaders.CONTENT_LENGTH.toString(), equalTo("33"))
+                .withRequestBody(equalToJson("{\"clé\":\"value\", \"key\":\"välæur\"}"))
+        );
     }
 
     @Test
