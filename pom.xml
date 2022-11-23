@@ -34,7 +34,7 @@
     </parent>
 
     <properties>
-        <gravitee-apim-gateway-tests-sdk.version>3.18.3</gravitee-apim-gateway-tests-sdk.version>
+        <gravitee-apim-gateway-tests-sdk.version>3.18.12</gravitee-apim-gateway-tests-sdk.version>
         <gravitee-bom.version>2.8</gravitee-bom.version>
         <gravitee-common.version>1.28.0</gravitee-common.version>
         <gravitee-expression-language.version>1.9.2</gravitee-expression-language.version>
