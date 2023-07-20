@@ -1,3 +1,10 @@
+## [2.0.2](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/2.0.1...2.0.2) (2023-07-20)
+
+
+### Bug Fixes
+
+* update policy description ([dcd71d6](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/dcd71d6179e8cd3e603b5d3929115d699de14f82))
+
 ## [2.0.1](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/2.0.0...2.0.1) (2022-08-01)
 
 
