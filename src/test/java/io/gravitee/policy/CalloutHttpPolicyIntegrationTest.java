@@ -15,7 +15,15 @@
  */
 package io.gravitee.policy;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.ok;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,13 +37,14 @@ import io.gravitee.definition.model.Api;
 import io.gravitee.plugin.policy.PolicyPlugin;
 import io.gravitee.policy.callout.CalloutHttpPolicy;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
-import io.reactivex.observers.TestObserver;
 import io.vertx.core.http.HttpHeaders;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
-import io.vertx.reactivex.core.buffer.Buffer;
-import io.vertx.reactivex.ext.web.client.HttpResponse;
-import io.vertx.reactivex.ext.web.client.WebClient;
+import io.vertx.rxjava3.core.buffer.Buffer;
+import io.vertx.rxjava3.core.http.HttpClient;
+import io.vertx.rxjava3.core.http.HttpClientRequest;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -61,15 +70,15 @@ class CalloutHttpPolicyIntegrationTest extends AbstractPolicyTest<CalloutHttpPol
     public void configureApi(Api api) {
         api
             .getFlows()
-            .forEach(flow -> {
+            .forEach(flow ->
                 flow
                     .getPre()
                     .stream()
                     .filter(step -> policyName().equals(step.getPolicy()))
                     .forEach(step ->
                         step.setConfiguration(step.getConfiguration().replace(CALLOUT_BASE_URL, LOCALHOST + calloutServer.getPort()))
-                    );
-            });
+                    )
+            );
     }
 
     @Override
@@ -80,18 +89,24 @@ class CalloutHttpPolicyIntegrationTest extends AbstractPolicyTest<CalloutHttpPol
     @Test
     @DisplayName("Should do callout and set response as attribute")
     @DeployApi("/apis/callout-http.json")
-    void shouldDoCalloutAndSetResponseAsAttribute(WebClient client) throws Exception {
+    void shouldDoCalloutAndSetResponseAsAttribute(HttpClient client) {
         wiremock.stubFor(get("/endpoint").willReturn(ok("response from backend")));
         calloutServer.stubFor(get("/callout").willReturn(ok("response from callout")));
 
-        final TestObserver<HttpResponse<Buffer>> obs = client.get("/test").rxSend().test();
+        var obs = client
+            .rxRequest(HttpMethod.GET, "/test")
+            .flatMap(HttpClientRequest::rxSend)
+            .flatMapPublisher(response -> {
+                assertThat(response.statusCode()).isEqualTo(200);
+                return response.toFlowable();
+            })
+            .test();
 
-        awaitTerminalEvent(obs);
         obs
+            .awaitDone(30, TimeUnit.SECONDS)
             .assertComplete()
             .assertValue(response -> {
-                assertThat(response.statusCode()).isEqualTo(200);
-                assertThat(response.bodyAsString()).isEqualTo("response from callout");
+                assertThat(response).hasToString("response from callout");
                 return true;
             })
             .assertNoErrors();
@@ -103,21 +118,24 @@ class CalloutHttpPolicyIntegrationTest extends AbstractPolicyTest<CalloutHttpPol
     @Test
     @DisplayName("Should call callout endpoint with proper body when it contains accents")
     @DeployApi("/apis/callout-http-post-with-accents.json")
-    void shouldDoCalloutAndSetResponseWithAccentAsAttribute(WebClient client) {
+    void shouldDoCalloutAndSetResponseWithAccentAsAttribute(HttpClient client) {
         wiremock.stubFor(post("/endpoint").willReturn(ok("réponse from backend")));
         calloutServer.stubFor(post("/callout").willReturn(ok("response from callout")));
 
-        final TestObserver<HttpResponse<Buffer>> obs = client
-            .post("/test")
-            .rxSendJsonObject(new JsonObject().put("clé", "value").put("key", "välæur"))
+        var obs = client
+            .rxRequest(HttpMethod.POST, "/test")
+            .flatMap(req -> req.rxSend(Buffer.buffer(new JsonObject().put("clé", "value").put("key", "välæur").encode())))
+            .flatMapPublisher(response -> {
+                assertThat(response.statusCode()).isEqualTo(200);
+                return response.toFlowable();
+            })
             .test();
 
-        awaitTerminalEvent(obs);
         obs
+            .awaitDone(30, TimeUnit.SECONDS)
             .assertComplete()
             .assertValue(response -> {
-                assertThat(response.statusCode()).isEqualTo(200);
-                assertThat(response.bodyAsString()).isEqualTo("réponse from backend");
+                assertThat(response).hasToString("réponse from backend");
                 return true;
             })
             .assertNoErrors();
@@ -134,18 +152,24 @@ class CalloutHttpPolicyIntegrationTest extends AbstractPolicyTest<CalloutHttpPol
     @Test
     @DisplayName("Should do callout Fire and Forget")
     @DeployApi("/apis/callout-http-fire-and-forget.json")
-    void shouldDoCalloutFireAndForget(WebClient client) throws Exception {
+    void shouldDoCalloutFireAndForget(HttpClient client) {
         wiremock.stubFor(get("/endpoint").willReturn(ok("response from backend")));
         calloutServer.stubFor(get("/callout").willReturn(ok("response from callout")));
 
-        final TestObserver<HttpResponse<Buffer>> obs = client.get("/test").rxSend().test();
+        var obs = client
+            .rxRequest(HttpMethod.GET, "/test")
+            .flatMap(HttpClientRequest::rxSend)
+            .flatMapPublisher(response -> {
+                assertThat(response.statusCode()).isEqualTo(200);
+                return response.toFlowable();
+            })
+            .test();
 
-        awaitTerminalEvent(obs);
         obs
+            .awaitDone(30, TimeUnit.SECONDS)
             .assertComplete()
             .assertValue(response -> {
-                assertThat(response.statusCode()).isEqualTo(200);
-                assertThat(response.bodyAsString()).isEqualTo(CopyCalloutAttributePolicy.NO_CALLOUT_CONTENT_ATTRIBUTE);
+                assertThat(response).hasToString(CopyCalloutAttributePolicy.NO_CALLOUT_CONTENT_ATTRIBUTE);
                 return true;
             })
             .assertNoErrors();
@@ -157,18 +181,24 @@ class CalloutHttpPolicyIntegrationTest extends AbstractPolicyTest<CalloutHttpPol
     @Test
     @DisplayName("Should do callout on invalid target and answer custom response")
     @DeployApi("/apis/callout-http-invalid-target.json")
-    void shouldDoCalloutInvalidTarget(WebClient client) throws Exception {
+    void shouldDoCalloutInvalidTarget(HttpClient client) {
         wiremock.stubFor(get("/endpoint").willReturn(ok("response from backend")));
         calloutServer.stubFor(get("/callout").willReturn(aResponse().withStatus(501).withBody("callout backend not implemented")));
 
-        final TestObserver<HttpResponse<Buffer>> obs = client.get("/test").rxSend().test();
+        var obs = client
+            .rxRequest(HttpMethod.GET, "/test")
+            .flatMap(HttpClientRequest::rxSend)
+            .flatMapPublisher(response -> {
+                assertThat(response.statusCode()).isEqualTo(HttpStatusCode.NOT_IMPLEMENTED_501);
+                return response.toFlowable();
+            })
+            .test();
 
-        awaitTerminalEvent(obs);
         obs
+            .awaitDone(30, TimeUnit.SECONDS)
             .assertComplete()
             .assertValue(response -> {
-                assertThat(response.statusCode()).isEqualTo(HttpStatusCode.NOT_IMPLEMENTED_501);
-                assertThat(response.bodyAsString()).isEqualTo("errorContent");
+                assertThat(response).hasToString("errorContent");
                 return true;
             })
             .assertNoErrors();
