@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.gravitee.policy;
+package io.gravitee.policy.v3.callout;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
@@ -36,6 +36,7 @@ import io.gravitee.gateway.api.Request;
 import io.gravitee.gateway.api.RequestWrapper;
 import io.gravitee.gateway.api.Response;
 import io.gravitee.node.api.configuration.Configuration;
+import io.gravitee.policy.CountDownWebhook;
 import io.gravitee.policy.api.PolicyChain;
 import io.gravitee.policy.api.PolicyResult;
 import io.gravitee.policy.callout.CalloutHttpPolicy;
@@ -60,7 +61,7 @@ import org.mockito.junit.MockitoJUnitRunner;
  * @author GraviteeSource Team
  */
 @RunWith(MockitoJUnitRunner.class)
-public class CalloutHttpPolicyTest {
+public class CalloutHttpPolicyV3Test {
 
     @Rule
     public WireMockRule wireMockRule = new WireMockRule(wireMockConfig().dynamicPort().extensions(CountDownWebhook.class));

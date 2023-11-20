@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.gravitee.policy;
+package io.gravitee.policy.v3.callout;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
@@ -34,6 +34,7 @@ import io.gravitee.apim.gateway.tests.sdk.annotations.GatewayTest;
 import io.gravitee.apim.gateway.tests.sdk.policy.PolicyBuilder;
 import io.gravitee.common.http.HttpStatusCode;
 import io.gravitee.definition.model.Api;
+import io.gravitee.definition.model.ExecutionMode;
 import io.gravitee.plugin.policy.PolicyPlugin;
 import io.gravitee.policy.callout.CalloutHttpPolicy;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
@@ -53,8 +54,8 @@ import org.junit.jupiter.api.extension.RegisterExtension;
  * @author Yann TAVERNIER (yann.tavernier at graviteesource.com)
  * @author GraviteeSource Team
  */
-@GatewayTest
-class CalloutHttpPolicyIntegrationTest extends AbstractPolicyTest<CalloutHttpPolicy, CalloutHttpPolicyConfiguration> {
+@GatewayTest(v2ExecutionMode = ExecutionMode.V3)
+class CalloutHttpPolicyV3IntegrationTest extends AbstractPolicyTest<CalloutHttpPolicy, CalloutHttpPolicyConfiguration> {
 
     public static final String LOCALHOST = "localhost:";
     public static final String CALLOUT_BASE_URL = LOCALHOST + "8089";
@@ -63,7 +64,7 @@ class CalloutHttpPolicyIntegrationTest extends AbstractPolicyTest<CalloutHttpPol
     static WireMockExtension calloutServer = WireMockExtension.newInstance().options(wireMockConfig().dynamicPort()).build();
 
     /**
-     * Override Callout policy URL to use the dynamic port from {@link CalloutHttpPolicyIntegrationTest#calloutServer}
+     * Override Callout policy URL to use the dynamic port from {@link CalloutHttpPolicyV3IntegrationTest#calloutServer}
      * @param api is the api to apply this function code
      */
     @Override
@@ -88,7 +89,7 @@ class CalloutHttpPolicyIntegrationTest extends AbstractPolicyTest<CalloutHttpPol
 
     @Test
     @DisplayName("Should do callout and set response as attribute")
-    @DeployApi("/apis/callout-http.json")
+    @DeployApi("/apis/v3/callout-http.json")
     void shouldDoCalloutAndSetResponseAsAttribute(HttpClient client) {
         wiremock.stubFor(get("/endpoint").willReturn(ok("response from backend")));
         calloutServer.stubFor(get("/callout").willReturn(ok("response from callout")));
@@ -117,7 +118,7 @@ class CalloutHttpPolicyIntegrationTest extends AbstractPolicyTest<CalloutHttpPol
 
     @Test
     @DisplayName("Should call callout endpoint with proper body when it contains accents")
-    @DeployApi("/apis/callout-http-post-with-accents.json")
+    @DeployApi("/apis/v3/callout-http-post-with-accents.json")
     void shouldDoCalloutAndSetResponseWithAccentAsAttribute(HttpClient client) {
         wiremock.stubFor(post("/endpoint").willReturn(ok("réponse from backend")));
         calloutServer.stubFor(post("/callout").willReturn(ok("response from callout")));
@@ -151,7 +152,7 @@ class CalloutHttpPolicyIntegrationTest extends AbstractPolicyTest<CalloutHttpPol
 
     @Test
     @DisplayName("Should do callout Fire and Forget")
-    @DeployApi("/apis/callout-http-fire-and-forget.json")
+    @DeployApi("/apis/v3/callout-http-fire-and-forget.json")
     void shouldDoCalloutFireAndForget(HttpClient client) {
         wiremock.stubFor(get("/endpoint").willReturn(ok("response from backend")));
         calloutServer.stubFor(get("/callout").willReturn(ok("response from callout")));
@@ -180,7 +181,7 @@ class CalloutHttpPolicyIntegrationTest extends AbstractPolicyTest<CalloutHttpPol
 
     @Test
     @DisplayName("Should do callout on invalid target and answer custom response")
-    @DeployApi("/apis/callout-http-invalid-target.json")
+    @DeployApi("/apis/v3/callout-http-invalid-target.json")
     void shouldDoCalloutInvalidTarget(HttpClient client) {
         wiremock.stubFor(get("/endpoint").willReturn(ok("response from backend")));
         calloutServer.stubFor(get("/callout").willReturn(aResponse().withStatus(501).withBody("callout backend not implemented")));

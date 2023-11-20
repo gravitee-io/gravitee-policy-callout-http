@@ -28,11 +28,11 @@ public class CalloutResponse {
     private final String content;
     private final HttpHeaders headers;
 
-    CalloutResponse(final HttpClientResponse response) {
+    public CalloutResponse(final HttpClientResponse response) {
         this(response, null);
     }
 
-    CalloutResponse(final HttpClientResponse response, final String content) {
+    public CalloutResponse(final HttpClientResponse response, final String content) {
         this.response = response;
         this.content = content;
         this.headers = HttpHeaders.create();
