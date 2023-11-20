@@ -1,298 +1,273 @@
 {
-  "type": "object",
-  "id": "urn:jsonschema:io:gravitee:policy:callout:configuration:CalloutHttpPolicyConfiguration",
-  "properties": {
-    "scope": {
-      "title": "Scope",
-      "description": "Execute policy on <strong>request</strong> (HEAD) phase, <strong>response</strong> (HEAD) phase, <strong>request_content</strong> (includes payload) phase, <strong>response content</strong> (includes payload) phase.",
-      "type": "string",
-      "default": "REQUEST",
-      "enum": [
-        "REQUEST",
-        "RESPONSE",
-        "REQUEST_CONTENT",
-        "RESPONSE_CONTENT"
-      ],
-      "deprecated": true
-    },
-    "method": {
-      "title": "HTTP Method",
-      "description": "HTTP method to invoke the endpoint.",
-      "type": "string",
-      "default": "GET",
-      "enum": [
-        "GET",
-        "POST",
-        "PUT",
-        "DELETE",
-        "PATCH",
-        "HEAD",
-        "CONNECT",
-        "OPTIONS",
-        "TRACE"
-      ]
-    },
-    "useSystemProxy": {
-      "title": "Use system proxy",
-      "description": "Use the system proxy configured by your administrator.",
-      "type": "boolean"
-    },
-    "url": {
-      "title": "URL",
-      "type": "string"
-    },
-    "headers": {
-      "type": "array",
-      "title": "Request Headers",
-      "items": {
-        "type": "object",
-        "id": "urn:jsonschema:io:gravitee:policy:callout:configuration:HttpHeader",
-        "title": "Header",
-        "properties": {
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "value": {
-            "title": "Value",
-            "type": "string"
-          }
-        }
-      },
-      "required": [
-        "name",
-        "value"
-      ]
-    },
-    "body": {
-      "title": "Request body",
-      "type": "string",
-      "x-schema-form": {
-        "type": "codemirror",
-        "codemirrorOptions": {
-          "placeholder": "Put request body here",
-          "lineWrapping": true,
-          "lineNumbers": true,
-          "allowDropFileTypes": true,
-          "autoCloseTags": true
-        }
-      }
-    },
-    "fireAndForget": {
-      "title": "Fire & forget",
-      "description": "Make the http call without expecting any response. When activating this mode, context variables and exit on error are useless.",
-      "type": "boolean",
-      "default": false
-    },
-    "variables": {
-      "type": "array",
-      "title": "Context variables",
-      "items": {
-        "type": "object",
-        "id": "urn:jsonschema:io:gravitee:policy:callout:configuration:Variable",
-        "title": "Variable",
-        "properties": {
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "value": {
-            "title": "Value",
+    "type": "object",
+    "id": "urn:jsonschema:io:gravitee:policy:callout:configuration:CalloutHttpPolicyConfiguration",
+    "properties": {
+        "scope": {
+            "title": "Scope",
+            "description": "Execute policy on <strong>request</strong> (HEAD) phase, <strong>response</strong> (HEAD) phase, <strong>request_content</strong> (includes payload) phase, <strong>response content</strong> (includes payload) phase.",
             "type": "string",
-            "default": "{#jsonPath(#calloutResponse.content, '$.field')}"
-          }
+            "default": "REQUEST",
+            "enum": ["REQUEST", "RESPONSE", "REQUEST_CONTENT", "RESPONSE_CONTENT"],
+            "deprecated": true
+        },
+        "method": {
+            "title": "HTTP Method",
+            "description": "HTTP method to invoke the endpoint.",
+            "type": "string",
+            "default": "GET",
+            "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "CONNECT", "OPTIONS", "TRACE"]
+        },
+        "useSystemProxy": {
+            "title": "Use system proxy",
+            "description": "Use the system proxy configured by your administrator.",
+            "type": "boolean"
+        },
+        "url": {
+            "title": "URL",
+            "type": "string"
+        },
+        "headers": {
+            "type": "array",
+            "title": "Request Headers",
+            "items": {
+                "type": "object",
+                "id": "urn:jsonschema:io:gravitee:policy:callout:configuration:HttpHeader",
+                "title": "Header",
+                "properties": {
+                    "name": {
+                        "title": "Name",
+                        "type": "string"
+                    },
+                    "value": {
+                        "title": "Value",
+                        "type": "string"
+                    }
+                }
+            },
+            "required": ["name", "value"]
+        },
+        "body": {
+            "title": "Request body",
+            "type": "string",
+            "x-schema-form": {
+                "type": "codemirror",
+                "codemirrorOptions": {
+                    "placeholder": "Put request body here",
+                    "lineWrapping": true,
+                    "lineNumbers": true,
+                    "allowDropFileTypes": true,
+                    "autoCloseTags": true
+                }
+            }
+        },
+        "fireAndForget": {
+            "title": "Fire & forget",
+            "description": "Make the http call without expecting any response. When activating this mode, context variables and exit on error are useless.",
+            "type": "boolean",
+            "default": false
+        },
+        "variables": {
+            "type": "array",
+            "title": "Context variables",
+            "items": {
+                "type": "object",
+                "id": "urn:jsonschema:io:gravitee:policy:callout:configuration:Variable",
+                "title": "Variable",
+                "properties": {
+                    "name": {
+                        "title": "Name",
+                        "type": "string"
+                    },
+                    "value": {
+                        "title": "Value",
+                        "type": "string",
+                        "default": "{#jsonPath(#calloutResponse.content, '$.field')}"
+                    }
+                }
+            },
+            "required": ["name", "value"],
+            "x-schema-form": {
+                "hidden": [
+                    {
+                        "$eq": {
+                            "fireAndForget": true
+                        }
+                    }
+                ]
+            }
+        },
+        "exitOnError": {
+            "title": "Exit on error",
+            "description": "Terminate the request if the error condition is true",
+            "type": "boolean",
+            "default": false,
+            "x-schema-form": {
+                "hidden": [
+                    {
+                        "$eq": {
+                            "fireAndForget": true
+                        }
+                    }
+                ]
+            }
+        },
+        "errorCondition": {
+            "title": "Error condition",
+            "description": "The condition which will be verified to end the request (support EL).",
+            "default": "{#calloutResponse.status >= 400 and #calloutResponse.status <= 599}",
+            "type": "string",
+            "x-schema-form": {
+                "expression-language": true,
+                "hidden": [
+                    {
+                        "$eq": {
+                            "fireAndForget": true,
+                            "exitOnError": false
+                        }
+                    }
+                ]
+            }
+        },
+        "errorStatusCode": {
+            "title": "Error status code",
+            "description": "HTTP Status Code send to the consumer if the condition is true",
+            "type": "string",
+            "default": "500",
+            "enum": [
+                "100",
+                "101",
+                "102",
+                "200",
+                "201",
+                "202",
+                "203",
+                "204",
+                "205",
+                "206",
+                "207",
+                "300",
+                "301",
+                "302",
+                "303",
+                "304",
+                "305",
+                "307",
+                "400",
+                "401",
+                "402",
+                "403",
+                "404",
+                "405",
+                "406",
+                "407",
+                "408",
+                "409",
+                "410",
+                "411",
+                "412",
+                "413",
+                "414",
+                "415",
+                "416",
+                "417",
+                "422",
+                "423",
+                "424",
+                "429",
+                "500",
+                "501",
+                "502",
+                "503",
+                "504",
+                "505",
+                "507"
+            ],
+            "x-schema-form": {
+                "type": "select",
+                "titleMap": {
+                    "100": "100 - CONTINUE",
+                    "101": "101 - SWITCHING_PROTOCOLS",
+                    "102": "102 - PROCESSING",
+                    "200": "200 - OK",
+                    "201": "201 - CREATED",
+                    "202": "202 - ACCEPTED",
+                    "203": "203 - NON_AUTHORITATIVE_INFORMATION",
+                    "204": "204 - NO_CONTENT",
+                    "205": "205 - RESET_CONTENT",
+                    "206": "206 - PARTIAL_CONTENT",
+                    "207": "207 - MULTI_STATUS",
+                    "300": "300 - MULTIPLE_CHOICES",
+                    "301": "301 - MOVED_PERMANENTLY",
+                    "302": "302 - FOUND OR MOVED_TEMPORARILY",
+                    "303": "303 - SEE_OTHER",
+                    "304": "304 - NOT_MODIFIED",
+                    "305": "305 - USE_PROXY",
+                    "307": "307 - TEMPORARY_REDIRECT",
+                    "400": "400 - BAD_REQUEST",
+                    "401": "401 - UNAUTHORIZED",
+                    "402": "402 - PAYMENT_REQUIRED",
+                    "403": "403 - FORBIDDEN",
+                    "404": "404 - NOT_FOUND",
+                    "405": "405 - METHOD_NOT_ALLOWED",
+                    "406": "406 - NOT_ACCEPTABLE",
+                    "407": "407 - PROXY_AUTHENTICATION_REQUIRED",
+                    "408": "408 - REQUEST_TIMEOUT",
+                    "409": "409 - CONFLICT",
+                    "410": "410 - GONE",
+                    "411": "411 - LENGTH_REQUIRED",
+                    "412": "412 - PRECONDITION_FAILED",
+                    "413": "413 - REQUEST_ENTITY_TOO_LARGE",
+                    "414": "414 - REQUEST_URI_TOO_LONG",
+                    "415": "415 - UNSUPPORTED_MEDIA_TYPE",
+                    "416": "416 - REQUESTED_RANGE_NOT_SATISFIABLE",
+                    "417": "417 - EXPECTATION_FAILED",
+                    "422": "422 - UNPROCESSABLE_ENTITY",
+                    "423": "423 - LOCKED",
+                    "424": "424 - FAILED_DEPENDENCY",
+                    "429": "429 - TOO_MANY_REQUESTS",
+                    "500": "500 - INTERNAL_SERVER_ERROR",
+                    "501": "501 - NOT_IMPLEMENTED",
+                    "502": "502 - BAD_GATEWAY",
+                    "503": "503 - SERVICE_UNAVAILABLE",
+                    "504": "504 - GATEWAY_TIMEOUT",
+                    "505": "505 - HTTP_VERSION_NOT_SUPPORTED",
+                    "507": "507 - INSUFFICIENT_STORAGE"
+                },
+                "hidden": [
+                    {
+                        "$eq": {
+                            "fireAndForget": true,
+                            "exitOnError": false
+                        }
+                    }
+                ]
+            }
+        },
+        "errorContent": {
+            "title": "Error response body",
+            "description": "The body response of the error if the condition is true (support EL)",
+            "type": "string",
+            "x-schema-form": {
+                "type": "codemirror",
+                "codemirrorOptions": {
+                    "placeholder": "Put response body here",
+                    "lineWrapping": true,
+                    "lineNumbers": true,
+                    "allowDropFileTypes": true,
+                    "autoCloseTags": true,
+                    "mode": "javascript"
+                },
+                "expression-language": true,
+                "hidden": [
+                    {
+                        "$eq": {
+                            "fireAndForget": true,
+                            "exitOnError": false
+                        }
+                    }
+                ]
+            }
         }
-      },
-      "required": [
-        "name",
-        "value"
-      ],
-      "x-schema-form": {
-        "hidden": [
-          {
-            "$eq": {
-              "fireAndForget": true
-            }
-          }
-        ]
-      }
     },
-    "exitOnError": {
-      "title": "Exit on error",
-      "description": "Terminate the request if the error condition is true",
-      "type": "boolean",
-      "default": false,
-      "x-schema-form": {
-        "hidden": [
-          {
-            "$eq": {
-              "fireAndForget": true
-            }
-          }
-        ]
-      }
-    },
-    "errorCondition": {
-      "title": "Error condition",
-      "description": "The condition which will be verified to end the request (support EL).",
-      "default": "{#calloutResponse.status >= 400 and #calloutResponse.status <= 599}",
-      "type": "string",
-      "x-schema-form": {
-        "expression-language": true,
-        "hidden": [
-          {
-            "$eq": {
-              "fireAndForget": true,
-              "exitOnError": false
-            }
-          }
-        ]
-      }
-    },
-    "errorStatusCode": {
-      "title": "Error status code",
-      "description": "HTTP Status Code send to the consumer if the condition is true",
-      "type": "string",
-      "default": "500",
-      "enum": [
-        "100",
-        "101",
-        "102",
-        "200",
-        "201",
-        "202",
-        "203",
-        "204",
-        "205",
-        "206",
-        "207",
-        "300",
-        "301",
-        "302",
-        "303",
-        "304",
-        "305",
-        "307",
-        "400",
-        "401",
-        "402",
-        "403",
-        "404",
-        "405",
-        "406",
-        "407",
-        "408",
-        "409",
-        "410",
-        "411",
-        "412",
-        "413",
-        "414",
-        "415",
-        "416",
-        "417",
-        "422",
-        "423",
-        "424",
-        "429",
-        "500",
-        "501",
-        "502",
-        "503",
-        "504",
-        "505",
-        "507"
-      ],
-      "x-schema-form": {
-        "type": "select",
-        "titleMap": {
-          "100": "100 - CONTINUE",
-          "101": "101 - SWITCHING_PROTOCOLS",
-          "102": "102 - PROCESSING",
-          "200": "200 - OK",
-          "201": "201 - CREATED",
-          "202": "202 - ACCEPTED",
-          "203": "203 - NON_AUTHORITATIVE_INFORMATION",
-          "204": "204 - NO_CONTENT",
-          "205": "205 - RESET_CONTENT",
-          "206": "206 - PARTIAL_CONTENT",
-          "207": "207 - MULTI_STATUS",
-          "300": "300 - MULTIPLE_CHOICES",
-          "301": "301 - MOVED_PERMANENTLY",
-          "302": "302 - FOUND OR MOVED_TEMPORARILY",
-          "303": "303 - SEE_OTHER",
-          "304": "304 - NOT_MODIFIED",
-          "305": "305 - USE_PROXY",
-          "307": "307 - TEMPORARY_REDIRECT",
-          "400": "400 - BAD_REQUEST",
-          "401": "401 - UNAUTHORIZED",
-          "402": "402 - PAYMENT_REQUIRED",
-          "403": "403 - FORBIDDEN",
-          "404": "404 - NOT_FOUND",
-          "405": "405 - METHOD_NOT_ALLOWED",
-          "406": "406 - NOT_ACCEPTABLE",
-          "407": "407 - PROXY_AUTHENTICATION_REQUIRED",
-          "408": "408 - REQUEST_TIMEOUT",
-          "409": "409 - CONFLICT",
-          "410": "410 - GONE",
-          "411": "411 - LENGTH_REQUIRED",
-          "412": "412 - PRECONDITION_FAILED",
-          "413": "413 - REQUEST_ENTITY_TOO_LARGE",
-          "414": "414 - REQUEST_URI_TOO_LONG",
-          "415": "415 - UNSUPPORTED_MEDIA_TYPE",
-          "416": "416 - REQUESTED_RANGE_NOT_SATISFIABLE",
-          "417": "417 - EXPECTATION_FAILED",
-          "422": "422 - UNPROCESSABLE_ENTITY",
-          "423": "423 - LOCKED",
-          "424": "424 - FAILED_DEPENDENCY",
-          "429": "429 - TOO_MANY_REQUESTS",
-          "500": "500 - INTERNAL_SERVER_ERROR",
-          "501": "501 - NOT_IMPLEMENTED",
-          "502": "502 - BAD_GATEWAY",
-          "503": "503 - SERVICE_UNAVAILABLE",
-          "504": "504 - GATEWAY_TIMEOUT",
-          "505": "505 - HTTP_VERSION_NOT_SUPPORTED",
-          "507": "507 - INSUFFICIENT_STORAGE"
-        },
-        "hidden": [
-          {
-            "$eq": {
-              "fireAndForget": true,
-              "exitOnError": false
-            }
-          }
-        ]
-      }
-    },
-    "errorContent": {
-      "title": "Error response body",
-      "description": "The body response of the error if the condition is true (support EL)",
-      "type": "string",
-      "x-schema-form": {
-        "type": "codemirror",
-        "codemirrorOptions": {
-          "placeholder": "Put response body here",
-          "lineWrapping": true,
-          "lineNumbers": true,
-          "allowDropFileTypes": true,
-          "autoCloseTags": true,
-          "mode": "javascript"
-        },
-        "expression-language": true,
-        "hidden": [
-          {
-            "$eq": {
-              "fireAndForget": true,
-              "exitOnError": false
-            }
-          }
-        ]
-      }
-    }
-  },
-  "required": [
-    "url",
-    "method",
-    "exitOnError"
-  ]
+    "required": ["url", "method", "exitOnError"]
 }
