@@ -1,18 +1,24 @@
 {
-  "extends": [
-    "config:base"
-  ],
+  "extends": ["config:base", ":label(dependencies)"],
   "rebaseWhen": "conflicted",
   "packageRules": [
     {
       "matchDatasources": ["orb"],
-      "rangeStrategy": "replace"
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": true,
+      "automergeType": "branch",
+      "semanticCommitType": "ci"
     },
     {
       "matchDepTypes": ["provided", "test", "build", "import", "parent"],
       "matchUpdateTypes": ["patch", "minor"],
       "automerge": true,
       "automergeType": "branch",
+      "semanticCommitType": "chore"
+    },
+    {
+      "matchDepTypes": ["provided", "test", "build", "import", "parent"],
+      "matchUpdateTypes": ["major"],
       "semanticCommitType": "chore"
     }
   ]
