@@ -1,0 +1,67 @@
+{
+    "id": "proxy-response-exit-on-error",
+    "name": "my-api",
+    "gravitee": "4.0.0",
+    "type": "proxy",
+    "listeners": [
+        {
+            "type": "http",
+            "paths": [
+                {
+                    "path": "/proxy-response-exit-on-error"
+                }
+            ],
+            "entrypoints": [{ "type": "http-proxy" }]
+        }
+    ],
+    "endpointGroups": [
+        {
+            "name": "default",
+            "type": "http-proxy",
+            "endpoints": [
+                {
+                    "name": "default-endpoint",
+                    "type": "http-proxy",
+                    "configuration": { "target": "http://localhost:8080/endpoint" }
+                }
+            ]
+        }
+    ],
+    "flows": [
+        {
+            "name": "flow-1",
+            "methods": [],
+            "enabled": true,
+            "path-operator": {
+                "path": "/",
+                "operator": "STARTS_WITH"
+            },
+            "request": [],
+            "response": [
+                {
+                    "name": "Callout HTTP",
+                    "description": "",
+                    "enabled": true,
+                    "policy": "policy-http-callout",
+                    "configuration": {
+                        "method": "GET",
+                        "url": "CALLOUT_URL/callout",
+                        "exitOnError": true,
+                        "errorCondition": "{#calloutResponse.status >= 400 and #calloutResponse.status <= 599}",
+                        "errorStatusCode": "501",
+                        "errorContent": "Error content with status {#calloutResponse.status}"
+                    }
+                },
+                {
+                    "name": "Assign content",
+                    "description": "",
+                    "enabled": true,
+                    "policy": "assign-content",
+                    "configuration": {
+                        "body": "new content: {#context.attributes['newContent']}"
+                    }
+                }
+            ]
+        }
+    ]
+}

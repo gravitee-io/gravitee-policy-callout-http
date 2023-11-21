@@ -1,0 +1,72 @@
+{
+    "id": "proxy-request-fire-and-forget",
+    "name": "my-api",
+    "gravitee": "4.0.0",
+    "type": "proxy",
+    "listeners": [
+        {
+            "type": "http",
+            "paths": [
+                {
+                    "path": "/proxy-request-fire-and-forget"
+                }
+            ],
+            "entrypoints": [{ "type": "http-proxy" }]
+        }
+    ],
+    "endpointGroups": [
+        {
+            "name": "default",
+            "type": "http-proxy",
+            "endpoints": [
+                {
+                    "name": "default-endpoint",
+                    "type": "http-proxy",
+                    "configuration": { "target": "http://localhost:8080/endpoint" }
+                }
+            ]
+        }
+    ],
+    "flows": [
+        {
+            "name": "flow-1",
+            "methods": [],
+            "enabled": true,
+            "path-operator": {
+                "path": "/",
+                "operator": "STARTS_WITH"
+            },
+            "request": [
+                {
+                    "name": "Callout HTTP",
+                    "description": "",
+                    "enabled": true,
+                    "policy": "policy-http-callout",
+                    "configuration": {
+                        "method": "GET",
+                        "url": "CALLOUT_URL/callout",
+                        "headers": [
+                            {
+                                "name": "X-Callout",
+                                "value": "calloutHeader"
+                            }
+                        ],
+                        "fireAndForget": true
+                    }
+                }
+            ],
+            "response": [
+                {
+                    "name": "Assign content",
+                    "description": "",
+                    "enabled": true,
+                    "policy": "assign-content",
+                    "configuration": {
+                        "scope": "RESPONSE",
+                        "body": "new content"
+                    }
+                }
+            ]
+        }
+    ]
+}
