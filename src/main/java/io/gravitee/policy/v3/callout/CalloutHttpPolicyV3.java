@@ -59,12 +59,12 @@ public class CalloutHttpPolicyV3 {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CalloutHttpPolicyV3.class);
 
-    private static final String HTTPS_SCHEME = "https";
+    protected static final String HTTPS_SCHEME = "https";
 
-    private static final String CALLOUT_EXIT_ON_ERROR = "CALLOUT_EXIT_ON_ERROR";
-    private static final String CALLOUT_HTTP_ERROR = "CALLOUT_HTTP_ERROR";
+    public static final String CALLOUT_EXIT_ON_ERROR = "CALLOUT_EXIT_ON_ERROR";
+    public static final String CALLOUT_HTTP_ERROR = "CALLOUT_HTTP_ERROR";
 
-    private static final String TEMPLATE_VARIABLE = "calloutResponse";
+    protected static final String TEMPLATE_VARIABLE = "calloutResponse";
 
     private static final String REQUEST_TEMPLATE_VARIABLE = "request";
     private static final String RESPONSE_TEMPLATE_VARIABLE = "response";
@@ -72,7 +72,7 @@ public class CalloutHttpPolicyV3 {
     /**
      * The associated configuration to this CalloutHttp Policy
      */
-    private final CalloutHttpPolicyConfiguration configuration;
+    protected final CalloutHttpPolicyConfiguration configuration;
 
     /**
      * Create a new CalloutHttp Policy instance based on its associated configuration
@@ -345,7 +345,7 @@ public class CalloutHttpPolicyV3 {
         httpClient.close();
     }
 
-    private HttpMethod convert(io.gravitee.common.http.HttpMethod httpMethod) {
+    protected HttpMethod convert(io.gravitee.common.http.HttpMethod httpMethod) {
         switch (httpMethod) {
             case CONNECT:
                 return HttpMethod.CONNECT;
