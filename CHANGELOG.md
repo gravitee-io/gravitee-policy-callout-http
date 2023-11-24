@@ -1,3 +1,20 @@
+# [3.0.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/2.0.2...3.0.0) (2023-11-24)
+
+
+### chore
+
+* **deps:** update gravitee-parent ([5e52995](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/5e5299591ab0e9795e262f3426c4cfca7c16e589))
+
+
+### Features
+
+* migrate policy to support v4 API ([7d01bfe](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/7d01bfefde48b5e153b53f1476bf166162440226))
+
+
+### BREAKING CHANGES
+
+* **deps:** require Java17 and rxjava3
+
 ## [2.0.2](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/2.0.1...2.0.2) (2023-07-20)
 
 
