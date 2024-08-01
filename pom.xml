@@ -22,7 +22,7 @@
 
     <groupId>io.gravitee.policy</groupId>
     <artifactId>gravitee-policy-callout-http</artifactId>
-    <version>3.0.0</version>
+    <version>4.0.0</version>
 
     <name>Gravitee.io APIM - Policy - Callout HTTP</name>
     <description>Invoke an HTTP(S) URL and place a subset or all of the content in one or more variables of the request execution context</description>
@@ -34,16 +34,17 @@
     </parent>
 
     <properties>
-        <gravitee-apim-gateway-tests-sdk.version>4.1.5</gravitee-apim-gateway-tests-sdk.version>
-        <gravitee-bom.version>6.0.47</gravitee-bom.version>
-        <gravitee-common.version>3.4.1</gravitee-common.version>
+        <gravitee-bom.version>7.0.23</gravitee-bom.version>
+        <gravitee-common.version>4.4.0</gravitee-common.version>
         <gravitee-expression-language.version>3.2.0</gravitee-expression-language.version>
-        <gravitee-gateway-api.version>3.1.0</gravitee-gateway-api.version>
-        <gravitee-node.version>4.8.7</gravitee-node.version>
+        <gravitee-gateway-api.version>3.5.0</gravitee-gateway-api.version>
+        <gravitee-node.version>5.18.3</gravitee-node.version>
         <gravitee-policy-api.version>1.11.0</gravitee-policy-api.version>
+        <gravitee-apim.version>4.4.0</gravitee-apim.version>
 
-        <gravitee-reactor-message.version>1.0.3</gravitee-reactor-message.version>
-        <gravitee-entrypoint-sse.version>4.0.2</gravitee-entrypoint-sse.version>
+
+        <gravitee-reactor-message.version>3.0.0</gravitee-reactor-message.version>
+        <gravitee-entrypoint-sse.version>4.1.0</gravitee-entrypoint-sse.version>
 
         <maven-assembly-plugin.version>3.7.1</maven-assembly-plugin.version>
         <json-schema-generator-maven-plugin.version>1.3.0</json-schema-generator-maven-plugin.version>
@@ -63,6 +64,13 @@
                 <scope>import</scope>
                 <type>pom</type>
             </dependency>
+            <dependency>
+                <groupId>io.gravitee.node</groupId>
+                <artifactId>gravitee-node</artifactId>
+                <version>${gravitee-node.version}</version>
+                <scope>import</scope>
+                <type>pom</type>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -78,6 +86,12 @@
         <dependency>
             <groupId>io.gravitee.node</groupId>
             <artifactId>gravitee-node-api</artifactId>
+            <version>${gravitee-node.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.gravitee.node</groupId>
+            <artifactId>gravitee-node-vertx</artifactId>
             <version>${gravitee-node.version}</version>
             <scope>provided</scope>
         </dependency>
@@ -130,25 +144,25 @@
         <dependency>
             <groupId>io.gravitee.apim.gateway</groupId>
             <artifactId>gravitee-apim-gateway-tests-sdk</artifactId>
-            <version>${gravitee-apim-gateway-tests-sdk.version}</version>
+            <version>${gravitee-apim.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>io.gravitee.apim.plugin.entrypoint</groupId>
             <artifactId>gravitee-apim-plugin-entrypoint-http-proxy</artifactId>
-            <version>${gravitee-apim-gateway-tests-sdk.version}</version>
+            <version>${gravitee-apim.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>io.gravitee.apim.plugin.endpoint</groupId>
             <artifactId>gravitee-apim-plugin-endpoint-http-proxy</artifactId>
-            <version>${gravitee-apim-gateway-tests-sdk.version}</version>
+            <version>${gravitee-apim.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>io.gravitee.apim.plugin.endpoint</groupId>
             <artifactId>gravitee-apim-plugin-endpoint-mock</artifactId>
-            <version>${gravitee-apim-gateway-tests-sdk.version}</version>
+            <version>${gravitee-apim.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
