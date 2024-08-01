@@ -15,8 +15,6 @@
  */
 package io.gravitee.policy.v3.callout;
 
-import static io.gravitee.common.util.VertxProxyOptionsUtils.setSystemProxy;
-
 import io.gravitee.el.TemplateEngine;
 import io.gravitee.gateway.api.ExecutionContext;
 import io.gravitee.gateway.api.Request;
@@ -27,6 +25,7 @@ import io.gravitee.gateway.api.stream.BufferedReadWriteStream;
 import io.gravitee.gateway.api.stream.ReadWriteStream;
 import io.gravitee.gateway.api.stream.SimpleReadWriteStream;
 import io.gravitee.node.api.configuration.Configuration;
+import io.gravitee.node.vertx.proxy.VertxProxyOptionsUtils;
 import io.gravitee.policy.api.PolicyChain;
 import io.gravitee.policy.api.PolicyResult;
 import io.gravitee.policy.api.annotations.OnRequest;
@@ -203,7 +202,7 @@ public class CalloutHttpPolicyV3 {
             if (configuration.isUseSystemProxy()) {
                 Configuration configuration = context.getComponent(Configuration.class);
                 try {
-                    setSystemProxy(options, configuration);
+                    options.setProxyOptions(VertxProxyOptionsUtils.buildProxyOptions(configuration));
                 } catch (IllegalStateException e) {
                     LOGGER.warn(
                         "CalloutHttp requires a system proxy to be defined but some configurations are missing or not well defined: {}. Ignoring proxy",
