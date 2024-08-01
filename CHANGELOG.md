@@ -1,3 +1,15 @@
+# [4.0.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/3.0.0...4.0.0) (2024-08-01)
+
+
+### chore
+
+* **deps:** bump dependencies ([c87a780](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/c87a7801c5b5eb20bab30aa6f7d902eb6cef0696))
+
+
+### BREAKING CHANGES
+
+* **deps:** require APIM 4.4.x
+
 # [3.0.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/2.0.2...3.0.0) (2023-11-24)
 
 
