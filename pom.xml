@@ -40,7 +40,7 @@
         <gravitee-gateway-api.version>3.5.1</gravitee-gateway-api.version>
         <gravitee-node.version>5.20.0</gravitee-node.version>
         <gravitee-policy-api.version>1.11.0</gravitee-policy-api.version>
-        <gravitee-apim.version>4.4.0</gravitee-apim.version>
+        <gravitee-apim.version>4.4.4</gravitee-apim.version>
 
 
         <gravitee-reactor-message.version>3.0.0</gravitee-reactor-message.version>
