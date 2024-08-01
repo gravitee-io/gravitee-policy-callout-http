@@ -38,7 +38,7 @@
         <gravitee-common.version>4.4.0</gravitee-common.version>
         <gravitee-expression-language.version>3.2.0</gravitee-expression-language.version>
         <gravitee-gateway-api.version>3.5.1</gravitee-gateway-api.version>
-        <gravitee-node.version>5.18.3</gravitee-node.version>
+        <gravitee-node.version>5.20.0</gravitee-node.version>
         <gravitee-policy-api.version>1.11.0</gravitee-policy-api.version>
         <gravitee-apim.version>4.4.0</gravitee-apim.version>
 
