@@ -66,6 +66,14 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements Policy {
     }
 
     private Completable doCallOut(HttpExecutionContext ctx) {
+        if (configuration.isFireAndForget()) {
+            return Completable.fromRunnable(() -> executeCallOut(ctx).onErrorComplete().subscribe());
+        } else {
+            return executeCallOut(ctx);
+        }
+    }
+
+    private Completable executeCallOut(HttpExecutionContext ctx) {
         var templateEngine = ctx.getTemplateEngine();
         var vertx = ctx.getComponent(Vertx.class);
 
