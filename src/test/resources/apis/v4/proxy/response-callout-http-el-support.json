@@ -57,7 +57,7 @@
                             }
                         ],
                         "body": "{#request.headers['X-Body'][0]}",
-                        "fireAndForget": true
+                        "fireAndForget": false
                     }
                 },
                 {

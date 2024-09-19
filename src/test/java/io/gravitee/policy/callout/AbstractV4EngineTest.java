@@ -40,6 +40,7 @@ import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 @GatewayTest
@@ -49,6 +50,11 @@ public class AbstractV4EngineTest extends AbstractPolicyTest<CalloutHttpPolicy, 
 
     @RegisterExtension
     static WireMockExtension calloutServer = WireMockExtension.newInstance().options(wireMockConfig().dynamicPort()).build();
+
+    @BeforeEach
+    public void cleanStub() {
+        calloutServer.resetAll();
+    }
 
     @Override
     public void configureEntrypoints(Map<String, EntrypointConnectorPlugin<?, ?>> entrypoints) {

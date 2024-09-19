@@ -24,6 +24,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import io.gravitee.apim.gateway.tests.sdk.annotations.DeployApi;
 import io.gravitee.common.http.MediaType;
@@ -62,7 +63,7 @@ class CalloutHttpPolicyV4IntegrationTest {
                 .test();
 
             obs
-                .awaitDone(30, TimeUnit.SECONDS)
+                .awaitDone(5, TimeUnit.SECONDS)
                 .assertComplete()
                 .assertValue(response -> {
                     assertThat(response).hasToString("new content: response from callout");
@@ -79,9 +80,9 @@ class CalloutHttpPolicyV4IntegrationTest {
             { "/apis/v4/proxy/request-callout-http-fire-and-forget.json", "/apis/v4/proxy/response-callout-http-fire-and-forget.json" }
         )
         @ValueSource(strings = { "/proxy-request-fire-and-forget", "/proxy-response-fire-and-forget" })
-        void should_do_callout_and_do_nothing_with_callout_response(String apiEndpoint, HttpClient client) {
+        void should_do_callout_with_fire_and_forget_and_do_nothing_with_callout_response(String apiEndpoint, HttpClient client) {
             wiremock.stubFor(get("/endpoint").willReturn(ok("response from backend")));
-            calloutServer.stubFor(get("/callout").willReturn(ok("response from callout")));
+            calloutServer.stubFor(get("/callout").willReturn(ok("response from callout").withFixedDelay(8000)));
 
             var obs = client
                 .rxRequest(HttpMethod.GET, apiEndpoint)
@@ -93,7 +94,7 @@ class CalloutHttpPolicyV4IntegrationTest {
                 .test();
 
             obs
-                .awaitDone(30, TimeUnit.SECONDS)
+                .awaitDone(5, TimeUnit.SECONDS)
                 .assertComplete()
                 .assertValue(response -> {
                     assertThat(response).hasToString("new content");
@@ -102,7 +103,12 @@ class CalloutHttpPolicyV4IntegrationTest {
                 .assertNoErrors();
 
             wiremock.verify(getRequestedFor(urlPathEqualTo("/endpoint")));
-            calloutServer.verify(getRequestedFor(urlPathEqualTo("/callout")).withHeader("X-Callout", equalTo("calloutHeader")));
+
+            await()
+                .atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(() ->
+                    calloutServer.verify(getRequestedFor(urlPathEqualTo("/callout")).withHeader("X-Callout", equalTo("calloutHeader")))
+                );
         }
 
         @ParameterizedTest
@@ -130,7 +136,7 @@ class CalloutHttpPolicyV4IntegrationTest {
                 .test();
 
             obs
-                .awaitDone(30, TimeUnit.SECONDS)
+                .awaitDone(5, TimeUnit.SECONDS)
                 .assertComplete()
                 .assertValue(response -> {
                     assertThat(response).hasToString("new content");
@@ -164,7 +170,7 @@ class CalloutHttpPolicyV4IntegrationTest {
                 .test();
 
             obs
-                .awaitDone(30, TimeUnit.SECONDS)
+                .awaitDone(5, TimeUnit.SECONDS)
                 .assertComplete()
                 .assertValue(response -> {
                     assertThat(response).hasToString("Error content with status 502");
