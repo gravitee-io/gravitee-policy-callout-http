@@ -25,6 +25,7 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
 import static io.gravitee.policy.v3.callout.CalloutHttpPolicyV3.CALLOUT_EXIT_ON_ERROR;
 import static io.gravitee.policy.v3.callout.CalloutHttpPolicyV3.CALLOUT_HTTP_ERROR;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static test.RequestBuilder.aRequest;
@@ -341,11 +342,10 @@ class CalloutHttpPolicyV4Test {
             )
                 .onRequest(ctx)
                 .test()
-                .awaitDone(30, TimeUnit.SECONDS)
                 .assertComplete();
 
             assertThat(ctx.getAttributes()).isEmpty();
-            wiremock.verify(getRequestedFor(urlPathEqualTo("/")));
+            await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> wiremock.verify(getRequestedFor(urlPathEqualTo("/"))));
         }
 
         @Test
@@ -662,11 +662,10 @@ class CalloutHttpPolicyV4Test {
             )
                 .onResponse(ctx)
                 .test()
-                .awaitDone(30, TimeUnit.SECONDS)
                 .assertComplete();
 
             assertThat(ctx.getAttributes()).isEmpty();
-            wiremock.verify(getRequestedFor(urlPathEqualTo("/")));
+            await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> wiremock.verify(getRequestedFor(urlPathEqualTo("/"))));
         }
 
         @Test
