@@ -1,3 +1,10 @@
+## [4.0.1](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/4.0.0...4.0.1) (2024-09-20)
+
+
+### Bug Fixes
+
+* properly handle fire and forget in V4 ([40013b5](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/40013b57b906d71fe7c9f8f960ac421987097396))
+
 # [4.0.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/3.0.0...4.0.0) (2024-08-01)
 
 
