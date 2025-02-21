@@ -46,7 +46,7 @@
         <gravitee-reactor-message.version>3.0.0</gravitee-reactor-message.version>
         <gravitee-entrypoint-sse.version>4.1.0</gravitee-entrypoint-sse.version>
 
-        <awaitility.version>4.2.2</awaitility.version>
+        <awaitility.version>4.3.0</awaitility.version>
 
         <maven-assembly-plugin.version>3.7.1</maven-assembly-plugin.version>
         <json-schema-generator-maven-plugin.version>1.3.0</json-schema-generator-maven-plugin.version>
