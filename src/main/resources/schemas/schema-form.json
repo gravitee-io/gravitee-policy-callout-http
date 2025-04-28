@@ -1,4 +1,5 @@
 {
+    "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
     "id": "urn:jsonschema:io:gravitee:policy:callout:configuration:CalloutHttpPolicyConfiguration",
     "properties": {
@@ -62,7 +63,7 @@
         },
         "fireAndForget": {
             "title": "Fire & forget",
-            "description": "Make the http call without expecting any response. When activating this mode, context variables and exit on error are useless.",
+            "description": "Make the HTTP call without expecting any response. When activating this mode, context variables and exit on error are useless.",
             "type": "boolean",
             "default": false
         },
@@ -98,7 +99,7 @@
         },
         "exitOnError": {
             "title": "Exit on error",
-            "description": "Terminate the request if the error condition is true",
+            "description": "Terminate the request if the error condition is true.",
             "type": "boolean",
             "default": false,
             "x-schema-form": {
@@ -113,7 +114,7 @@
         },
         "errorCondition": {
             "title": "Error condition",
-            "description": "The condition which will be verified to end the request (support EL).",
+            "description": "The condition which will be verified to end the request (supports EL).",
             "default": "{#calloutResponse.status >= 400 and #calloutResponse.status <= 599}",
             "type": "string",
             "x-schema-form": {
@@ -130,7 +131,7 @@
         },
         "errorStatusCode": {
             "title": "Error status code",
-            "description": "HTTP Status Code send to the consumer if the condition is true",
+            "description": "HTTP Status Code send to the consumer if the condition is true.",
             "type": "string",
             "default": "500",
             "enum": [
@@ -245,7 +246,7 @@
         },
         "errorContent": {
             "title": "Error response body",
-            "description": "The body response of the error if the condition is true (support EL)",
+            "description": "The body response of the error if the condition is true (supports EL).",
             "type": "string",
             "x-schema-form": {
                 "type": "codemirror",

@@ -1,0 +1,15 @@
+genExamples: []
+
+rawExamples:
+    - title: API with basic callout
+      templateRef: v4-api-proxy
+      language: json
+      properties:
+          phase: request
+      file: .docgen/examples/callout.json
+    - title: API CRD with basic callout
+      templateRef: v4-api-crd-proxy
+      language: yaml
+      properties:
+          phase: request
+      file: .docgen/examples/callout.yaml
