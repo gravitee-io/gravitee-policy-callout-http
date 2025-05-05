@@ -57,20 +57,12 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements Policy {
 
     @Override
     public Completable onRequest(HttpExecutionContext ctx) {
-        return Completable.defer(() -> doCallOut(ctx));
+        return Completable.defer(() -> executeCallOut(ctx));
     }
 
     @Override
     public Completable onResponse(HttpExecutionContext ctx) {
-        return Completable.defer(() -> doCallOut(ctx));
-    }
-
-    private Completable doCallOut(HttpExecutionContext ctx) {
-        if (configuration.isFireAndForget()) {
-            return Completable.fromRunnable(() -> executeCallOut(ctx).onErrorComplete().subscribe());
-        } else {
-            return executeCallOut(ctx);
-        }
+        return Completable.defer(() -> executeCallOut(ctx));
     }
 
     private Completable executeCallOut(HttpExecutionContext ctx) {
@@ -134,12 +126,18 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements Policy {
             )
             .flatMapCompletable(calloutResponse -> processCalloutResponse(ctx, calloutResponse))
             .onErrorResumeNext(th -> {
-                if (th instanceof CalloutException && configuration.isExitOnError()) {
-                    return ctx.interruptWith(
-                        new ExecutionFailure(configuration.getErrorStatusCode()).key(CALLOUT_HTTP_ERROR).message(th.getCause().getMessage())
-                    );
+                if (!configuration.isFireAndForget()) {
+                    if (th instanceof CalloutException && configuration.isExitOnError()) {
+                        return ctx.interruptWith(
+                            new ExecutionFailure(configuration.getErrorStatusCode())
+                                .key(CALLOUT_HTTP_ERROR)
+                                .message(th.getCause().getMessage())
+                        );
+                    }
+                    return Completable.error(th);
+                } else {
+                    return Completable.complete();
                 }
-                return Completable.error(th);
             });
     }
 
