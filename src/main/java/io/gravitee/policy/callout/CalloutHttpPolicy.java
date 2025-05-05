@@ -66,16 +66,18 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements Policy {
     }
 
     private Completable doCallOut(HttpExecutionContext ctx) {
-        if (configuration.isFireAndForget()) {
-            return Completable.fromRunnable(() -> executeCallOut(ctx).onErrorComplete().subscribe());
-        } else {
-            return executeCallOut(ctx);
-        }
+        return prepareCalloutRequest(ctx)
+            .flatMapCompletable(reqConfig -> {
+                if (configuration.isFireAndForget()) {
+                    return Completable.fromRunnable(() -> executeCallOut(ctx, reqConfig).onErrorComplete().subscribe());
+                } else {
+                    return executeCallOut(ctx, reqConfig);
+                }
+            });
     }
 
-    private Completable executeCallOut(HttpExecutionContext ctx) {
+    private Single<Req> prepareCalloutRequest(HttpExecutionContext ctx) {
         var templateEngine = ctx.getTemplateEngine();
-        var vertx = ctx.getComponent(Vertx.class);
 
         var url = templateEngine.eval(configuration.getUrl(), String.class).switchIfEmpty(Single.just(configuration.getUrl()));
         var body = configuration.getBody() != null
@@ -98,33 +100,34 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements Policy {
             })
             .collect(toList());
 
-        return Single
-            .zip(url, body, headers, Req::new)
-            .flatMap(reqConfig -> {
-                var target = URI.create(reqConfig.url);
-                var httpClient = vertx.createHttpClient(buildHttpClientOptions(ctx, target));
-                var requestOpts = new RequestOptions().setAbsoluteURI(reqConfig.url).setMethod(convert(configuration.getMethod()));
+        return Single.zip(url, body, headers, Req::new);
+    }
 
-                return httpClient
-                    .rxRequest(requestOpts)
-                    .flatMap(req -> {
-                        if (reqConfig.headerList() != null) {
-                            reqConfig
-                                .headerList()
-                                .stream()
-                                .filter(header -> header.getValue() != null)
-                                .forEach(header -> req.putHeader(header.getName(), header.getValue()));
-                        }
+    private Completable executeCallOut(HttpExecutionContext ctx, Req reqConfig) {
+        var vertx = ctx.getComponent(Vertx.class);
+        var target = URI.create(reqConfig.url);
+        var httpClient = vertx.createHttpClient(buildHttpClientOptions(ctx, target));
+        var requestOpts = new RequestOptions().setAbsoluteURI(reqConfig.url).setMethod(convert(configuration.getMethod()));
 
-                        if (reqConfig.body().isPresent() && !reqConfig.body().get().isEmpty()) {
-                            req.headers().remove(HttpHeaders.TRANSFER_ENCODING);
-                            // Removing Content-Length header to let VertX automatically set it correctly
-                            req.headers().remove(HttpHeaders.CONTENT_LENGTH);
-                            return req.rxSend(Buffer.buffer(reqConfig.body().get()));
-                        }
+        return httpClient
+            .rxRequest(requestOpts)
+            .flatMap(req -> {
+                if (reqConfig.headerList() != null) {
+                    reqConfig
+                        .headerList()
+                        .stream()
+                        .filter(header -> header.getValue() != null)
+                        .forEach(header -> req.putHeader(header.getName(), header.getValue()));
+                }
 
-                        return req.send();
-                    });
+                if (reqConfig.body().isPresent() && !reqConfig.body().get().isEmpty()) {
+                    req.headers().remove(HttpHeaders.TRANSFER_ENCODING);
+                    // Removing Content-Length header to let VertX automatically set it correctly
+                    req.headers().remove(HttpHeaders.CONTENT_LENGTH);
+                    return req.rxSend(Buffer.buffer(reqConfig.body().get()));
+                }
+
+                return req.send();
             })
             .onErrorResumeNext(throwable -> Single.error(new CalloutException(throwable)))
             .flatMap(httpClientResponse ->

@@ -342,6 +342,7 @@ class CalloutHttpPolicyV4Test {
             )
                 .onRequest(ctx)
                 .test()
+                .awaitDone(30, TimeUnit.SECONDS)
                 .assertComplete();
 
             assertThat(ctx.getAttributes()).isEmpty();
@@ -662,6 +663,7 @@ class CalloutHttpPolicyV4Test {
             )
                 .onResponse(ctx)
                 .test()
+                .awaitDone(30, TimeUnit.SECONDS)
                 .assertComplete();
 
             assertThat(ctx.getAttributes()).isEmpty();
