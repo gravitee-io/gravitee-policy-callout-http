@@ -82,7 +82,7 @@ class CalloutHttpPolicyV4IntegrationTest {
         @ValueSource(strings = { "/proxy-request-fire-and-forget", "/proxy-response-fire-and-forget" })
         void should_do_callout_with_fire_and_forget_and_do_nothing_with_callout_response(String apiEndpoint, HttpClient client) {
             wiremock.stubFor(get("/endpoint").willReturn(ok("response from backend")));
-            calloutServer.stubFor(get("/callout").willReturn(ok("response from callout").withFixedDelay(8000)));
+            calloutServer.stubFor(get("/callout").willReturn(ok("response from callout")));
 
             var obs = client
                 .rxRequest(HttpMethod.GET, apiEndpoint)
