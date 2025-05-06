@@ -321,7 +321,6 @@ class CalloutHttpPolicyV4Test {
         @ValueSource(booleans = { true, false })
         void should_call_and_do_nothing_when_fire_and_forget_defined(boolean exitOnError) {
             wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"a-value\"}")));
-
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
@@ -342,6 +341,7 @@ class CalloutHttpPolicyV4Test {
             )
                 .onRequest(ctx)
                 .test()
+                .awaitDone(30, TimeUnit.SECONDS)
                 .assertComplete();
 
             assertThat(ctx.getAttributes()).isEmpty();
@@ -662,6 +662,7 @@ class CalloutHttpPolicyV4Test {
             )
                 .onResponse(ctx)
                 .test()
+                .awaitDone(30, TimeUnit.SECONDS)
                 .assertComplete();
 
             assertThat(ctx.getAttributes()).isEmpty();
