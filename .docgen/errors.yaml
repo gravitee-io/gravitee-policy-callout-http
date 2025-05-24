@@ -1,0 +1,5 @@
+rows:
+    - data:
+          key: "CALLOUT_EXIT_ON_ERROR"
+    - data:
+          key: "CALLOUT_HTTP_ERROR"
