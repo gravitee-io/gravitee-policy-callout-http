@@ -1,3 +1,10 @@
+## [4.0.3](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/4.0.2...4.0.3) (2025-06-18)
+
+
+### Bug Fixes
+
+* generate new README using docgen ([a96179a](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/a96179ab27307d23e5d3f9e413c3003968c4aa45))
+
 ## [4.0.2](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/4.0.1...4.0.2) (2025-05-16)
 
 
