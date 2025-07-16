@@ -1,3 +1,15 @@
+# [5.0.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/4.0.3...5.0.0) (2025-07-16)
+
+
+### Features
+
+* support traces span ([64c28d9](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/64c28d94f129194dc2fa9ea605cac7e69c5562d9))
+
+
+### BREAKING CHANGES
+
+* require at least APIM 4.6.0
+
 ## [4.0.3](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/4.0.2...4.0.3) (2025-06-18)
 
 
