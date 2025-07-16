@@ -21,6 +21,9 @@ import io.gravitee.gateway.reactive.api.ExecutionFailure;
 import io.gravitee.gateway.reactive.api.context.HttpExecutionContext;
 import io.gravitee.gateway.reactive.api.policy.Policy;
 import io.gravitee.node.api.configuration.Configuration;
+import io.gravitee.node.api.opentelemetry.Span;
+import io.gravitee.node.api.opentelemetry.http.ObservableHttpClientRequest;
+import io.gravitee.node.api.opentelemetry.http.ObservableHttpClientResponse;
 import io.gravitee.node.vertx.proxy.VertxProxyOptionsUtils;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
 import io.gravitee.policy.callout.configuration.HttpHeader;
@@ -30,6 +33,7 @@ import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
 import io.vertx.core.http.HttpClientOptions;
+import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.RequestOptions;
 import io.vertx.rxjava3.core.Vertx;
@@ -108,10 +112,13 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements Policy {
         var target = URI.create(reqConfig.url);
         var httpClient = vertx.createHttpClient(buildHttpClientOptions(ctx, target));
         var requestOpts = new RequestOptions().setAbsoluteURI(reqConfig.url).setMethod(convert(configuration.getMethod()));
-
+        ObservableHttpClientRequest observableHttpClientRequest = new ObservableHttpClientRequest(requestOpts);
+        Span httpRequestSpan = ctx.getTracer().startSpanFrom(observableHttpClientRequest);
         return httpClient
             .rxRequest(requestOpts)
             .flatMap(req -> {
+                observableHttpClientRequest.httpClientRequest(req.getDelegate());
+                ctx.getTracer().injectSpanContext(req::putHeader);
                 if (reqConfig.headerList() != null) {
                     reqConfig
                         .headerList()
@@ -134,9 +141,12 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements Policy {
                 httpClientResponse
                     .body()
                     .map(responseBody -> new CalloutResponse(httpClientResponse.getDelegate(), responseBody.toString()))
+                    .map(calloutResponse -> new CalloutResponseWithDelegate(calloutResponse, httpClientResponse.getDelegate()))
             )
-            .flatMapCompletable(calloutResponse -> processCalloutResponse(ctx, calloutResponse))
+            .flatMapCompletable(calloutResponseWithDelegate -> processCalloutResponse(ctx, calloutResponseWithDelegate, httpRequestSpan))
             .onErrorResumeNext(th -> {
+                ctx.getTracer().endOnError(httpRequestSpan, th);
+
                 if (th instanceof CalloutException && configuration.isExitOnError()) {
                     return ctx.interruptWith(
                         new ExecutionFailure(configuration.getErrorStatusCode()).key(CALLOUT_HTTP_ERROR).message(th.getCause().getMessage())
@@ -166,8 +176,19 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements Policy {
         return options;
     }
 
-    private Completable processCalloutResponse(HttpExecutionContext ctx, CalloutResponse calloutResponse) {
+    private Completable processCalloutResponse(
+        HttpExecutionContext ctx,
+        CalloutResponseWithDelegate calloutResponseWithDelegate,
+        Span httpRequestSpan
+    ) {
+        CalloutResponse calloutResponse = calloutResponseWithDelegate.calloutResponse();
+        HttpClientResponse httpClientResponse = calloutResponseWithDelegate.httpClientResponse();
+
+        // Create observable response for tracing
+        ObservableHttpClientResponse observableHttpClientResponse = new ObservableHttpClientResponse(httpClientResponse);
+
         if (configuration.isFireAndForget()) {
+            ctx.getTracer().endWithResponse(httpRequestSpan, observableHttpClientResponse);
             return Completable.complete();
         }
 
@@ -180,13 +201,17 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements Policy {
                 .eval(configuration.getErrorCondition(), Boolean.class)
                 .flatMapCompletable(exit -> {
                     if (!exit) {
+                        ctx.getTracer().endWithResponse(httpRequestSpan, observableHttpClientResponse);
                         return processSuccess(ctx);
                     }
-
+                    httpRequestSpan.withAttribute(
+                        "error.condition.evaluation.message",
+                        "Callout failed due to error condition evaluation: " + configuration.getErrorCondition()
+                    );
                     return processError(ctx);
                 });
         }
-
+        ctx.getTracer().endWithResponse(httpRequestSpan, observableHttpClientResponse);
         return processSuccess(ctx);
     }
 
