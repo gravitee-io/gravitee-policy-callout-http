@@ -18,6 +18,7 @@ package test;
 import io.gravitee.gateway.api.buffer.Buffer;
 import io.gravitee.gateway.api.http.HttpHeaderNames;
 import io.gravitee.gateway.api.http.HttpHeaders;
+import io.gravitee.gateway.reactive.api.context.TlsSession;
 import io.gravitee.gateway.reactive.core.context.AbstractRequest;
 import io.gravitee.gateway.reactive.core.context.MutableRequest;
 
@@ -58,6 +59,11 @@ public class RequestBuilder {
 
         public void headers(HttpHeaders headers) {
             this.headers = headers;
+        }
+
+        @Override
+        public TlsSession tlsSession() {
+            return null;
         }
     }
 }
