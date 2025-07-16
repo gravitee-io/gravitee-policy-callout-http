@@ -1,7 +1,10 @@
 rows:
     - data:
+          plugin: 5.x
+          apim: 4.6.x to latest
+    - data:
           plugin: 4.x
-          apim: 4.4.x to latest
+          apim: 4.4.x to 4.5.x
     - data:
           plugin: 3.x
           apim: 4.0.x to 4.3.x
