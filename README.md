@@ -40,6 +40,8 @@ The `policy-http-callout` policy can be applied to the following API types and f
 
 * `PROXY`
 * `MESSAGE`
+* `MCP PROXY`
+* `LLM PROXY`
 
 ### Supported flow phases:
 
