@@ -49,13 +49,17 @@ public class AssignContentPolicy implements Policy {
             .onBody(body ->
                 body
                     .flatMap(content ->
-                        ctx.getTemplateEngine().eval(configuration.body(), String.class).flatMap(value -> Maybe.just(Buffer.buffer(value)))
+                        ctx
+                            .getTemplateEngine()
+                            .eval(configuration.body(), String.class)
+                            .flatMap(value -> Maybe.just(Buffer.buffer(value)))
                     )
                     .doOnSuccess(buffer -> ctx.response().headers().set(HttpHeaderNames.CONTENT_LENGTH, Integer.toString(buffer.length())))
                     .onErrorResumeNext(error ->
                         ctx.interruptBodyWith(
-                            new ExecutionFailure(HttpStatusCode.INTERNAL_SERVER_ERROR_500)
-                                .message("Unable to assign body content: " + error.getMessage())
+                            new ExecutionFailure(HttpStatusCode.INTERNAL_SERVER_ERROR_500).message(
+                                "Unable to assign body content: " + error.getMessage()
+                            )
                         )
                     )
             );
@@ -76,8 +80,9 @@ public class AssignContentPolicy implements Policy {
                     )
                     .onErrorResumeNext(error ->
                         ctx.interruptMessageWith(
-                            new ExecutionFailure(HttpStatusCode.INTERNAL_SERVER_ERROR_500)
-                                .message("Unable to assign body content: " + error.getMessage())
+                            new ExecutionFailure(HttpStatusCode.INTERNAL_SERVER_ERROR_500).message(
+                                "Unable to assign body content: " + error.getMessage()
+                            )
                         )
                     );
             });

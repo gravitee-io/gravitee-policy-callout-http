@@ -88,8 +88,7 @@ public class AbstractV4EngineTest extends AbstractPolicyTest<CalloutHttpPolicy, 
             apiDefinition
                 .getFlows()
                 .forEach(flow ->
-                    Stream
-                        .concat(flow.getRequest().stream(), flow.getResponse().stream())
+                    Stream.concat(flow.getRequest().stream(), flow.getResponse().stream())
                         .filter(step -> policyName().equals(step.getPolicy()))
                         .forEach(step ->
                             step.setConfiguration(step.getConfiguration().replace(CALLOUT_TEMPLATE_URL, calloutServer.baseUrl()))
