@@ -40,6 +40,7 @@ The `policy-http-callout` policy can be applied to the following API types and f
 
 * `PROXY`
 * `MESSAGE`
+* `NATIVE KAFKA`
 * `MCP PROXY`
 * `LLM PROXY`
 
@@ -47,6 +48,8 @@ The `policy-http-callout` policy can be applied to the following API types and f
 
 * Request
 * Response
+* Publish
+* Subscribe
 
 ## Compatibility matrix
 Strikethrough text indicates that a version is deprecated.

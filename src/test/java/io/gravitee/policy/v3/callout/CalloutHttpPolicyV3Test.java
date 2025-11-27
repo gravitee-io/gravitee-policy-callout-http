@@ -169,8 +169,9 @@ public class CalloutHttpPolicyV3Test {
 
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
-        when(configuration.getVariables())
-            .thenReturn(Collections.singletonList(new Variable("my-var", "{#jsonPath(#calloutResponse.content, '$.key')}")));
+        when(configuration.getVariables()).thenReturn(
+            Collections.singletonList(new Variable("my-var", "{#jsonPath(#calloutResponse.content, '$.key')}"))
+        );
 
         final CountDownLatch lock = new CountDownLatch(1);
         this.policyChain = spy(new CountDownPolicyChain(lock));
@@ -262,8 +263,9 @@ public class CalloutHttpPolicyV3Test {
 
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/{#request.params['param']}");
-        when(configuration.getVariables())
-            .thenReturn(Collections.singletonList(new Variable("my-var", "{#jsonPath(#calloutResponse.content, '$.key')}")));
+        when(configuration.getVariables()).thenReturn(
+            Collections.singletonList(new Variable("my-var", "{#jsonPath(#calloutResponse.content, '$.key')}"))
+        );
 
         final CountDownLatch lock = new CountDownLatch(1);
         this.policyChain = spy(new CountDownPolicyChain(lock));
@@ -300,12 +302,12 @@ public class CalloutHttpPolicyV3Test {
 
         lock.await(1000, TimeUnit.MILLISECONDS);
 
-        verify(policyChain, times(1))
-            .failWith(
-                argThat(result ->
+        verify(policyChain, times(1)).failWith(
+            argThat(
+                result ->
                     result.statusCode() == HttpStatusCode.INTERNAL_SERVER_ERROR_500 && result.message().equals("This is an error content")
-                )
-            );
+            )
+        );
 
         verify(getRequestedFor(urlEqualTo("/")));
     }
@@ -313,14 +315,16 @@ public class CalloutHttpPolicyV3Test {
     @Test
     public void shouldProcessRequest_withHeaders() throws Exception {
         stubFor(
-            get(urlEqualTo("/"))
-                .willReturn(aResponse().withStatus(200).withBody("{\"key\": \"value\"}").withHeader("Header", "value1", "value2"))
+            get(urlEqualTo("/")).willReturn(
+                aResponse().withStatus(200).withBody("{\"key\": \"value\"}").withHeader("Header", "value1", "value2")
+            )
         );
 
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
-        when(configuration.getVariables())
-            .thenReturn(Collections.singletonList(new Variable("my-headers", "{#calloutResponse.headers['Header']}")));
+        when(configuration.getVariables()).thenReturn(
+            Collections.singletonList(new Variable("my-headers", "{#calloutResponse.headers['Header']}"))
+        );
 
         final CountDownLatch lock = new CountDownLatch(1);
         this.policyChain = spy(new CountDownPolicyChain(lock));

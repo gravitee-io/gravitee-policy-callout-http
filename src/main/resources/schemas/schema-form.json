@@ -240,6 +240,11 @@
                             "fireAndForget": true,
                             "exitOnError": false
                         }
+                    },
+                    {
+                        "$eq": {
+                            "context.apiType": ["NATIVE"]
+                        }
                     }
                 ]
             }
@@ -264,6 +269,11 @@
                         "$eq": {
                             "fireAndForget": true,
                             "exitOnError": false
+                        }
+                    },
+                    {
+                        "$eq": {
+                            "context.apiType": ["NATIVE"]
                         }
                     }
                 ]

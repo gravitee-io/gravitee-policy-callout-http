@@ -26,18 +26,24 @@ import static io.gravitee.policy.v3.callout.CalloutHttpPolicyV3.CALLOUT_EXIT_ON_
 import static io.gravitee.policy.v3.callout.CalloutHttpPolicyV3.CALLOUT_HTTP_ERROR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 import static test.RequestBuilder.aRequest;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import io.gravitee.common.http.HttpMethod;
+import io.gravitee.el.TemplateEngine;
 import io.gravitee.gateway.reactive.api.ExecutionFailure;
+import io.gravitee.gateway.reactive.api.context.kafka.KafkaMessageExecutionContext;
+import io.gravitee.gateway.reactive.api.message.kafka.KafkaMessage;
+import io.gravitee.gateway.reactive.api.tracing.Tracer;
 import io.gravitee.gateway.reactive.core.context.interruption.InterruptionFailureException;
 import io.gravitee.node.api.configuration.Configuration;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
 import io.gravitee.policy.callout.configuration.Variable;
+import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.processors.ReplayProcessor;
 import io.vertx.rxjava3.core.Vertx;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,6 +53,9 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import test.ExecutionContextBuilder;
+import test.stub.KafkaMessageRequestStub;
+import test.stub.KafkaMessageResponseStub;
+import test.stub.KafkaMessageStub;
 
 class CalloutHttpPolicyV4Test {
 
@@ -73,8 +82,7 @@ class CalloutHttpPolicyV4Test {
                 .build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .headers(
@@ -102,8 +110,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .headers(
@@ -158,8 +165,7 @@ class CalloutHttpPolicyV4Test {
                 .build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .body("{#request.headers['X-Body'][0]}")
@@ -186,8 +192,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .exitOnError(exitOnError)
@@ -216,8 +221,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .exitOnError(exitOnError)
@@ -240,8 +244,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .exitOnError(true)
@@ -268,8 +271,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .exitOnError(true)
@@ -296,8 +298,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url("http://unknown")
                     .method(HttpMethod.GET)
                     .exitOnError(true)
@@ -325,8 +326,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .fireAndForget(true)
@@ -346,7 +346,9 @@ class CalloutHttpPolicyV4Test {
                 .assertComplete();
 
             assertThat(ctx.getAttributes()).isEmpty();
-            await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> wiremock.verify(getRequestedFor(urlPathEqualTo("/"))));
+            await()
+                .atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(() -> wiremock.verify(getRequestedFor(urlPathEqualTo("/"))));
         }
 
         @Test
@@ -359,8 +361,7 @@ class CalloutHttpPolicyV4Test {
                 .build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(true))
                     .method(HttpMethod.GET)
                     .headers(
@@ -420,8 +421,7 @@ class CalloutHttpPolicyV4Test {
                 .build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .headers(
@@ -449,8 +449,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .headers(
@@ -505,8 +504,7 @@ class CalloutHttpPolicyV4Test {
                 .build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .body("{#request.headers['X-Body'][0]}")
@@ -533,8 +531,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .exitOnError(exitOnError)
@@ -563,8 +560,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .exitOnError(exitOnError)
@@ -587,8 +583,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .exitOnError(true)
@@ -615,8 +610,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .exitOnError(true)
@@ -646,8 +640,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .fireAndForget(true)
@@ -667,7 +660,9 @@ class CalloutHttpPolicyV4Test {
                 .assertComplete();
 
             assertThat(ctx.getAttributes()).isEmpty();
-            await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> wiremock.verify(getRequestedFor(urlPathEqualTo("/"))));
+            await()
+                .atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(() -> wiremock.verify(getRequestedFor(urlPathEqualTo("/"))));
         }
 
         @Test
@@ -680,8 +675,7 @@ class CalloutHttpPolicyV4Test {
                 .build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(true))
                     .method(HttpMethod.GET)
                     .headers(
@@ -725,6 +719,82 @@ class CalloutHttpPolicyV4Test {
             verify(nodeConfiguration).getProperty("system.proxy.host");
             verify(nodeConfiguration).getProperty("system.proxy.username");
             verify(nodeConfiguration).getProperty("system.proxy.password");
+        }
+    }
+
+    @Nested
+    class OnMessageRequest {
+
+        @ParameterizedTest
+        @ValueSource(ints = { 1, 5, 10 })
+        void should_make_http_calls_for_kafka_messages(int recordsCount) {
+            wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"a-value\"}")));
+
+            KafkaMessageExecutionContext ctx = mock(KafkaMessageExecutionContext.class);
+            final KafkaMessageRequestStub request = new KafkaMessageRequestStub();
+            when(ctx.request()).thenReturn(request);
+            when(ctx.getTemplateEngine(any())).thenReturn(TemplateEngine.templateEngine());
+            when(ctx.getTemplateEngine()).thenReturn(TemplateEngine.templateEngine());
+            when(ctx.getComponent(Vertx.class)).thenReturn(Vertx.vertx());
+            when(ctx.getTracer()).thenReturn(mock(Tracer.class));
+
+            List<KafkaMessage> messages = new ArrayList<>();
+            for (int i = 0; i < recordsCount; i++) {
+                KafkaMessage stubMessage = new KafkaMessageStub("test_" + i);
+                messages.add(stubMessage);
+            }
+
+            policy(CalloutHttpPolicyConfiguration.builder().url(targetUrl(false)).method(HttpMethod.GET).build())
+                .onMessageRequest(ctx)
+                .doOnComplete(() -> request.messages(Flowable.fromIterable(messages)))
+                .test()
+                .awaitDone(3, TimeUnit.SECONDS)
+                .assertComplete();
+
+            ReplayProcessor<KafkaMessage> messagesEmittedToBrokerProcessor = ReplayProcessor.create();
+            request.messages().doOnNext(messagesEmittedToBrokerProcessor::onNext).test().awaitDone(3, TimeUnit.SECONDS).assertComplete();
+
+            await()
+                .atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(() -> wiremock.verify(recordsCount, getRequestedFor(urlPathEqualTo("/"))));
+        }
+    }
+
+    @Nested
+    class OnMessageResponse {
+
+        @ParameterizedTest
+        @ValueSource(ints = { 1, 5, 10 })
+        void should_make_http_calls_for_kafka_messages(int recordsCount) {
+            wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"a-value\"}")));
+
+            KafkaMessageExecutionContext ctx = mock(KafkaMessageExecutionContext.class);
+            final KafkaMessageResponseStub response = new KafkaMessageResponseStub();
+            when(ctx.response()).thenReturn(response);
+            when(ctx.getTemplateEngine(any())).thenReturn(TemplateEngine.templateEngine());
+            when(ctx.getTemplateEngine()).thenReturn(TemplateEngine.templateEngine());
+            when(ctx.getComponent(Vertx.class)).thenReturn(Vertx.vertx());
+            when(ctx.getTracer()).thenReturn(mock(Tracer.class));
+
+            List<KafkaMessage> messages = new ArrayList<>();
+            for (int i = 0; i < recordsCount; i++) {
+                KafkaMessage stubMessage = new KafkaMessageStub("test_" + i);
+                messages.add(stubMessage);
+            }
+
+            policy(CalloutHttpPolicyConfiguration.builder().url(targetUrl(false)).method(HttpMethod.GET).build())
+                .onMessageResponse(ctx)
+                .doOnComplete(() -> response.messages(Flowable.fromIterable(messages)))
+                .test()
+                .awaitDone(3, TimeUnit.SECONDS)
+                .assertComplete();
+
+            ReplayProcessor<KafkaMessage> messagesEmittedToBrokerProcessor = ReplayProcessor.create();
+            response.messages().doOnNext(messagesEmittedToBrokerProcessor::onNext).test().awaitDone(3, TimeUnit.SECONDS).assertComplete();
+
+            await()
+                .atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(() -> wiremock.verify(recordsCount, getRequestedFor(urlPathEqualTo("/"))));
         }
     }
 
