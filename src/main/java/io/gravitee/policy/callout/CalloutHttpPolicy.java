@@ -18,8 +18,11 @@ package io.gravitee.policy.callout;
 import static java.util.stream.Collectors.toList;
 
 import io.gravitee.gateway.reactive.api.ExecutionFailure;
-import io.gravitee.gateway.reactive.api.context.HttpExecutionContext;
-import io.gravitee.gateway.reactive.api.policy.Policy;
+import io.gravitee.gateway.reactive.api.context.base.BaseExecutionContext;
+import io.gravitee.gateway.reactive.api.context.http.HttpPlainExecutionContext;
+import io.gravitee.gateway.reactive.api.context.kafka.KafkaMessageExecutionContext;
+import io.gravitee.gateway.reactive.api.policy.http.HttpPolicy;
+import io.gravitee.gateway.reactive.api.policy.kafka.KafkaPolicy;
 import io.gravitee.node.api.configuration.Configuration;
 import io.gravitee.node.api.opentelemetry.Span;
 import io.gravitee.node.api.opentelemetry.http.ObservableHttpClientRequest;
@@ -48,7 +51,7 @@ import lombok.extern.slf4j.Slf4j;
  * @author GraviteeSource Team
  */
 @Slf4j
-public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements Policy {
+public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy, KafkaPolicy {
 
     public CalloutHttpPolicy(CalloutHttpPolicyConfiguration configuration) {
         super(configuration);
@@ -60,16 +63,26 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements Policy {
     }
 
     @Override
-    public Completable onRequest(HttpExecutionContext ctx) {
+    public Completable onRequest(HttpPlainExecutionContext ctx) {
         return Completable.defer(() -> doCallOut(ctx));
     }
 
     @Override
-    public Completable onResponse(HttpExecutionContext ctx) {
+    public Completable onResponse(HttpPlainExecutionContext ctx) {
         return Completable.defer(() -> doCallOut(ctx));
     }
 
-    private Completable doCallOut(HttpExecutionContext ctx) {
+    @Override
+    public Completable onMessageRequest(KafkaMessageExecutionContext ctx) {
+        return Completable.defer(() -> doCallOut(ctx));
+    }
+
+    @Override
+    public Completable onMessageResponse(KafkaMessageExecutionContext ctx) {
+        return Completable.defer(() -> doCallOut(ctx));
+    }
+
+    private Completable doCallOut(BaseExecutionContext ctx) {
         return prepareCalloutRequest(ctx)
             .flatMapCompletable(reqConfig -> {
                 if (configuration.isFireAndForget()) {
@@ -80,7 +93,7 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements Policy {
             });
     }
 
-    private Single<Req> prepareCalloutRequest(HttpExecutionContext ctx) {
+    private Single<Req> prepareCalloutRequest(BaseExecutionContext ctx) {
         var templateEngine = ctx.getTemplateEngine();
 
         var url = templateEngine.eval(configuration.getUrl(), String.class).switchIfEmpty(Single.just(configuration.getUrl()));
@@ -107,7 +120,7 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements Policy {
         return Single.zip(url, body, headers, Req::new);
     }
 
-    private Completable executeCallOut(HttpExecutionContext ctx, Req reqConfig) {
+    private Completable executeCallOut(BaseExecutionContext ctx, Req reqConfig) {
         var vertx = ctx.getComponent(Vertx.class);
         var target = URI.create(reqConfig.url);
         var httpClient = vertx.createHttpClient(buildHttpClientOptions(ctx, target));
@@ -148,15 +161,21 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements Policy {
                 ctx.getTracer().endOnError(httpRequestSpan, th);
 
                 if (th instanceof CalloutException && configuration.isExitOnError()) {
-                    return ctx.interruptWith(
-                        new ExecutionFailure(configuration.getErrorStatusCode()).key(CALLOUT_HTTP_ERROR).message(th.getCause().getMessage())
-                    );
+                    if (ctx instanceof HttpPlainExecutionContext httpContext) {
+                        return httpContext.interruptWith(
+                            new ExecutionFailure(configuration.getErrorStatusCode())
+                                .key(CALLOUT_HTTP_ERROR)
+                                .message(th.getCause().getMessage())
+                        );
+                    } else if (ctx instanceof KafkaMessageExecutionContext kafkaContext) {
+                        return kafkaContext.executionContext().interruptWith(org.apache.kafka.common.protocol.Errors.UNKNOWN_SERVER_ERROR);
+                    }
                 }
                 return Completable.error(th);
             });
     }
 
-    private HttpClientOptions buildHttpClientOptions(HttpExecutionContext ctx, URI target) {
+    private HttpClientOptions buildHttpClientOptions(BaseExecutionContext ctx, URI target) {
         var options = new HttpClientOptions();
         if (HTTPS_SCHEME.equalsIgnoreCase(target.getScheme())) {
             options.setSsl(true).setTrustAll(true).setVerifyHost(false);
@@ -177,7 +196,7 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements Policy {
     }
 
     private Completable processCalloutResponse(
-        HttpExecutionContext ctx,
+        BaseExecutionContext ctx,
         CalloutResponseWithDelegate calloutResponseWithDelegate,
         Span httpRequestSpan
     ) {
@@ -215,7 +234,7 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements Policy {
         return processSuccess(ctx);
     }
 
-    private Completable processSuccess(HttpExecutionContext ctx) {
+    private Completable processSuccess(BaseExecutionContext ctx) {
         return Flowable
             .fromIterable(configuration.getVariables())
             .flatMapCompletable(variable -> {
@@ -229,14 +248,21 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements Policy {
             .doOnComplete(() -> ctx.getTemplateEngine().getTemplateContext().setVariable(TEMPLATE_VARIABLE, null));
     }
 
-    private Completable processError(HttpExecutionContext ctx) {
+    private Completable processError(BaseExecutionContext ctx) {
         return Maybe
             .fromSupplier(configuration::getErrorContent)
             .flatMap(content -> ctx.getTemplateEngine().eval(content, String.class))
             .switchIfEmpty(Single.just("Request is terminated."))
-            .flatMapCompletable(errorContent ->
-                ctx.interruptWith(new ExecutionFailure(configuration.getErrorStatusCode()).key(CALLOUT_EXIT_ON_ERROR).message(errorContent))
-            );
+            .flatMapCompletable(errorContent -> {
+                if (ctx instanceof HttpPlainExecutionContext httpContext) {
+                    return httpContext.interruptWith(
+                        new ExecutionFailure(configuration.getErrorStatusCode()).key(CALLOUT_EXIT_ON_ERROR).message(errorContent)
+                    );
+                } else if (ctx instanceof KafkaMessageExecutionContext kafkaContext) {
+                    return kafkaContext.executionContext().interruptWith(org.apache.kafka.common.protocol.Errors.UNKNOWN_SERVER_ERROR);
+                }
+                return Completable.complete();
+            });
     }
 
     record Req(String url, Optional<String> body, List<HttpHeader> headerList) {}
