@@ -40,6 +40,8 @@ The `policy-http-callout` policy can be applied to the following API types and f
 
 * `PROXY`
 * `MESSAGE`
+* `MCP PROXY`
+* `LLM PROXY`
 
 ### Supported flow phases:
 
@@ -203,6 +205,13 @@ spec:
 
 
 ## Changelog
+
+### [5.1.0-alpha.1](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/5.0.0...5.1.0-alpha.1) (2025-11-07)
+
+
+##### Features
+
+* enable for LLM & MCP Proxy API ([d1d2a25](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/d1d2a25c6939c273961f461770398d8cc878c19b))
 
 ### [5.0.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/4.0.3...5.0.0) (2025-07-16)
 
