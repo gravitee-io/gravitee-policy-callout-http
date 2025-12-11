@@ -22,7 +22,7 @@
 
     <groupId>io.gravitee.policy</groupId>
     <artifactId>gravitee-policy-callout-http</artifactId>
-    <version>5.1.0-alpha.1</version>
+    <version>5.1.0</version>
 
     <name>Gravitee.io APIM - Policy - Callout HTTP</name>
     <description>Invoke an HTTP(S) URL and place a subset or all of the content in one or more variables of the request execution context</description>

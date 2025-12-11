@@ -1,3 +1,10 @@
+# [5.1.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/5.0.0...5.1.0) (2025-12-11)
+
+
+### Features
+
+* enable for LLM & MCP Proxy API ([7203e13](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/7203e134879248a237df304b09ed1a4cb2608975))
+
 # [5.1.0-alpha.1](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/5.0.0...5.1.0-alpha.1) (2025-11-07)
 
 
