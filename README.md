@@ -209,6 +209,13 @@ spec:
 
 ## Changelog
 
+### [5.2.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/5.1.0...5.2.0) (2025-12-22)
+
+
+##### Features
+
+* kafka native ([6bab675](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/6bab675395654fc983cba844589205cf94d8a4bc))
+
 ### [5.1.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/5.0.0...5.1.0) (2025-12-11)
 
 
