@@ -191,7 +191,7 @@ public class CalloutHttpPolicyV3 {
         }
 
         try {
-            String url = context.getTemplateEngine().convert(configuration.getUrl());
+            String url = context.getTemplateEngine().evalNow(configuration.getUrl(), String.class);
             URI target = URI.create(url);
 
             HttpClientOptions options = new HttpClientOptions();
@@ -229,7 +229,7 @@ public class CalloutHttpPolicyV3 {
                         .forEach(header -> {
                             try {
                                 String extValue = (header.getValue() != null)
-                                    ? context.getTemplateEngine().convert(header.getValue())
+                                    ? context.getTemplateEngine().evalNow(header.getValue(), String.class)
                                     : null;
                                 if (extValue != null) {
                                     httpClientRequest.putHeader(header.getName(), extValue);
@@ -244,7 +244,7 @@ public class CalloutHttpPolicyV3 {
 
                 if (configuration.getBody() != null && !configuration.getBody().isEmpty()) {
                     // Body can be dynamically resolved using el expression.
-                    body = context.getTemplateEngine().getValue(configuration.getBody(), String.class);
+                    body = context.getTemplateEngine().evalNow(configuration.getBody(), String.class);
                 }
 
                 // Check the resolved body before trying to send it.
@@ -290,7 +290,7 @@ public class CalloutHttpPolicyV3 {
                 boolean exit = false;
 
                 if (configuration.isExitOnError()) {
-                    exit = tplEngine.getValue(configuration.getErrorCondition(), Boolean.class);
+                    exit = tplEngine.evalNow(configuration.getErrorCondition(), Boolean.class);
                 }
 
                 if (!exit) {
@@ -301,7 +301,7 @@ public class CalloutHttpPolicyV3 {
                             .forEach(variable -> {
                                 try {
                                     String extValue = (variable.getValue() != null)
-                                        ? tplEngine.getValue(variable.getValue(), String.class)
+                                        ? tplEngine.evalNow(variable.getValue(), String.class)
                                         : null;
                                     context.setAttribute(variable.getName(), extValue);
                                 } catch (Throwable ex) {
@@ -317,7 +317,7 @@ public class CalloutHttpPolicyV3 {
                 } else {
                     String errorContent = configuration.getErrorContent();
                     try {
-                        errorContent = tplEngine.getValue(configuration.getErrorContent(), String.class);
+                        errorContent = tplEngine.evalNow(configuration.getErrorContent(), String.class);
                     } catch (Exception ex) {
                         // Do nothing
                     }
