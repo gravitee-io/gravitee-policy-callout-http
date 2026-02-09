@@ -45,6 +45,8 @@ import io.gravitee.policy.callout.configuration.PolicyScope;
 import io.gravitee.policy.callout.configuration.Variable;
 import io.vertx.core.Vertx;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -264,7 +266,10 @@ public class CalloutHttpPolicyV3Test {
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/{#request.params['param']}");
         when(configuration.getVariables()).thenReturn(
-            Collections.singletonList(new Variable("my-var", "{#jsonPath(#calloutResponse.content, '$.key')}"))
+            List.of(
+                new Variable("my-var", "{#jsonPath(#calloutResponse.content, '$.key')}"),
+                new Variable("my-object-var", "{#jsonPath(#calloutResponse.content, '$')}", false)
+            )
         );
 
         final CountDownLatch lock = new CountDownLatch(1);
@@ -279,6 +284,7 @@ public class CalloutHttpPolicyV3Test {
         lock.await(1000, TimeUnit.MILLISECONDS);
 
         verify(executionContext, times(1)).setAttribute(eq("my-var"), eq("value"));
+        verify(executionContext, times(1)).setAttribute(eq("my-object-var"), eq(Map.of("key", "value")));
         verify(policyChain, times(1)).doNext(request, response);
 
         verify(getRequestedFor(urlEqualTo("/content")));

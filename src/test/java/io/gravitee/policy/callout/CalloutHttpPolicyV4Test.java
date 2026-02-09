@@ -45,6 +45,7 @@ import io.reactivex.rxjava3.processors.ReplayProcessor;
 import io.vertx.rxjava3.core.Vertx;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -200,7 +201,8 @@ class CalloutHttpPolicyV4Test {
                     .variables(
                         List.of(
                             new Variable("callout1", "static"),
-                            new Variable("callout2", "{#jsonPath(#calloutResponse.content, '$.key')}")
+                            new Variable("callout2", "{#jsonPath(#calloutResponse.content, '$.key')}"),
+                            new Variable("callout3", "{#jsonPath(#calloutResponse.content, '$')}", false)
                         )
                     )
                     .build()
@@ -210,7 +212,10 @@ class CalloutHttpPolicyV4Test {
                 .awaitDone(30, TimeUnit.SECONDS)
                 .assertComplete();
 
-            assertThat(ctx.getAttributes()).containsEntry("callout1", "static").containsEntry("callout2", "a-value");
+            assertThat(ctx.getAttributes())
+                .containsEntry("callout1", "static")
+                .containsEntry("callout2", "a-value")
+                .containsEntry("callout3", Map.of("key", "a-value"));
         }
 
         @ParameterizedTest

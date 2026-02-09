@@ -116,6 +116,7 @@ system:
 #### Context variables (Array)
 | Name <br>`json name`  | Type <br>`constraint`  | Mandatory  | Default  | Description  |
 |:----------------------|:-----------------------|:----------:|:---------|:-------------|
+| Evaluate as string<br>`evaluateAsString`| boolean|  | `true`| Evaluate the value as a string. Default is true for backward compatibility.|
 | Name<br>`name`| string|  | | |
 | Value<br>`value`| string|  | `{#jsonPath(#calloutResponse.content, '$.field')}`| |
 

@@ -300,10 +300,12 @@ public class CalloutHttpPolicyV3 {
                             .getVariables()
                             .forEach(variable -> {
                                 try {
-                                    String extValue = (variable.getValue() != null)
-                                        ? tplEngine.evalNow(variable.getValue(), String.class)
-                                        : null;
-                                    context.setAttribute(variable.getName(), extValue);
+                                    if (variable.getValue() != null) {
+                                        Class<?> clazz = variable.isEvaluateAsString() ? String.class : Object.class;
+                                        context.setAttribute(variable.getName(), tplEngine.evalNow(variable.getValue(), clazz));
+                                    } else {
+                                        context.setAttribute(variable.getName(), null);
+                                    }
                                 } catch (Throwable ex) {
                                     // Do nothing
                                 }
