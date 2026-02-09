@@ -196,8 +196,11 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
         return Flowable.fromIterable(configuration.getVariables())
             .flatMapCompletable(variable -> {
                 ctx.setAttribute(variable.getName(), null);
-                return Maybe.just(variable.getValue())
-                    .flatMap(value -> ctx.getTemplateEngine().eval(value, String.class))
+                return Maybe.just(variable)
+                    .flatMap(var -> {
+                        Class<?> clazz = var.isEvaluateAsString() ? String.class : Object.class;
+                        return ctx.getTemplateEngine().eval(var.getValue(), clazz);
+                    })
                     .doOnSuccess(value -> ctx.setAttribute(variable.getName(), value))
                     .ignoreElement();
             })

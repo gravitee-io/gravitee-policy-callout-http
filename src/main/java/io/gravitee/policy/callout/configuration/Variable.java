@@ -35,6 +35,13 @@ public class Variable {
 
     private String value;
 
+    private boolean evaluateAsString = true;
+
+    public Variable(String name, String value) {
+        this.name = name;
+        this.value = value;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

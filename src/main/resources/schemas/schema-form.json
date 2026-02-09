@@ -83,6 +83,12 @@
                         "title": "Value",
                         "type": "string",
                         "default": "{#jsonPath(#calloutResponse.content, '$.field')}"
+                    },
+                    "evaluateAsString": {
+                        "title": "Evaluate as string",
+                        "description": "Evaluate the value as a string. Default is true for backward compatibility.",
+                        "type": "boolean",
+                        "default": true
                     }
                 }
             },
