@@ -1,3 +1,10 @@
+# [5.3.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/5.2.0...5.3.0) (2026-02-10)
+
+
+### Features
+
+* add an option to evaluate as object ([73a0a81](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/73a0a814de0b871bca4f6af1b7545b926f80b024))
+
 # [5.2.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/5.1.0...5.2.0) (2025-12-22)
 
 
