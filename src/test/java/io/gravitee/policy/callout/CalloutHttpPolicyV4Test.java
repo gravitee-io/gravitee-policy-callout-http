@@ -38,6 +38,7 @@ import io.gravitee.gateway.reactive.api.message.kafka.KafkaMessage;
 import io.gravitee.gateway.reactive.api.tracing.Tracer;
 import io.gravitee.gateway.reactive.core.context.interruption.InterruptionFailureException;
 import io.gravitee.node.api.configuration.Configuration;
+import io.gravitee.plugin.configurations.http.HttpClientOptions;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
 import io.gravitee.policy.callout.configuration.Variable;
 import io.reactivex.rxjava3.core.Flowable;
@@ -79,6 +80,7 @@ class CalloutHttpPolicyV4Test {
 
             var ctx = new ExecutionContextBuilder()
                 .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
                 .request(aRequest().header("X-Header2", "value2").build())
                 .build();
 
@@ -108,7 +110,11 @@ class CalloutHttpPolicyV4Test {
         void should_not_add_null_header_to_callout_call() {
             wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"a-value\"}")));
 
-            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
+                .request(aRequest().build())
+                .build();
 
             policy(
                 CalloutHttpPolicyConfiguration.builder()
@@ -138,7 +144,11 @@ class CalloutHttpPolicyV4Test {
         void should_send_static_body_to_callout_call() {
             wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"a-value\"}")));
 
-            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
+                .request(aRequest().build())
+                .build();
 
             String body = "static body";
             policy(CalloutHttpPolicyConfiguration.builder().url(targetUrl(false)).method(HttpMethod.GET).body(body).build())
@@ -162,6 +172,7 @@ class CalloutHttpPolicyV4Test {
             String body = "dynamic body";
             var ctx = new ExecutionContextBuilder()
                 .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
                 .request(aRequest().header("X-Body", body).build())
                 .build();
 
@@ -190,7 +201,11 @@ class CalloutHttpPolicyV4Test {
         void should_add_variables_in_context_when_callout_succeed(boolean exitOnError) {
             wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"a-value\"}")));
 
-            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
+                .request(aRequest().build())
+                .build();
 
             policy(
                 CalloutHttpPolicyConfiguration.builder()
@@ -223,7 +238,11 @@ class CalloutHttpPolicyV4Test {
         void should_call_and_do_nothing_when_no_variables_defined(boolean exitOnError) {
             wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"a-value\"}")));
 
-            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
+                .request(aRequest().build())
+                .build();
 
             policy(
                 CalloutHttpPolicyConfiguration.builder()
@@ -246,7 +265,11 @@ class CalloutHttpPolicyV4Test {
         void should_interrupt_when_exitOnError_and_use_default_message_when_no_error_content_defined() {
             wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(400).withBody("Bad request")));
 
-            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
+                .request(aRequest().build())
+                .build();
 
             policy(
                 CalloutHttpPolicyConfiguration.builder()
@@ -273,7 +296,11 @@ class CalloutHttpPolicyV4Test {
         void should_interrupt_when_exitOnError_and_use_provided_configuration() {
             wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(400).withBody("Bad request")));
 
-            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
+                .request(aRequest().build())
+                .build();
 
             policy(
                 CalloutHttpPolicyConfiguration.builder()
@@ -300,7 +327,11 @@ class CalloutHttpPolicyV4Test {
 
         @Test
         void should_interrupt_when_fail_to_call_target_callout() {
-            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
+                .request(aRequest().build())
+                .build();
 
             policy(
                 CalloutHttpPolicyConfiguration.builder()
@@ -328,7 +359,11 @@ class CalloutHttpPolicyV4Test {
         void should_call_and_do_nothing_when_fire_and_forget_defined(boolean exitOnError) {
             wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"a-value\"}")));
 
-            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
+                .request(aRequest().build())
+                .build();
 
             policy(
                 CalloutHttpPolicyConfiguration.builder()
@@ -362,6 +397,7 @@ class CalloutHttpPolicyV4Test {
 
             var ctx = new ExecutionContextBuilder()
                 .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
                 .request(aRequest().header("X-Header2", "value2").build())
                 .build();
 
@@ -397,19 +433,20 @@ class CalloutHttpPolicyV4Test {
                 .request(aRequest().header("X-Header2", "value2").build())
                 .build();
 
-            policy(CalloutHttpPolicyConfiguration.builder().useSystemProxy(true).url(targetUrl(false)).method(HttpMethod.GET).build())
-                .onRequest(ctx)
-                .test()
-                .awaitDone(30, TimeUnit.SECONDS)
-                .assertComplete();
+            // Use a NEW configuration to ensure it triggers the proxy check logic
+            var config = CalloutHttpPolicyConfiguration.builder().useSystemProxy(true).url(targetUrl(false)).method(HttpMethod.GET).build();
+            // Ensure internal proxy object is disabled to force the fallback legacy check
+            config.getProxy().setEnabled(false);
+
+            policy(config).onRequest(ctx).test().awaitDone(30, TimeUnit.SECONDS).assertComplete();
 
             wiremock.verify(getRequestedFor(urlPathEqualTo("/")));
 
-            verify(nodeConfiguration).getProperty("system.proxy.port");
-            verify(nodeConfiguration).getProperty("system.proxy.type");
-            verify(nodeConfiguration).getProperty("system.proxy.host");
-            verify(nodeConfiguration).getProperty("system.proxy.username");
-            verify(nodeConfiguration).getProperty("system.proxy.password");
+            verify(nodeConfiguration, atLeastOnce()).getProperty("system.proxy.port");
+            verify(nodeConfiguration, atLeastOnce()).getProperty("system.proxy.type");
+            verify(nodeConfiguration, atLeastOnce()).getProperty("system.proxy.host");
+            verify(nodeConfiguration, atLeastOnce()).getProperty("system.proxy.username");
+            verify(nodeConfiguration, atLeastOnce()).getProperty("system.proxy.password");
         }
     }
 
@@ -422,6 +459,7 @@ class CalloutHttpPolicyV4Test {
 
             var ctx = new ExecutionContextBuilder()
                 .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
                 .request(aRequest().header("X-Header2", "value2").build())
                 .build();
 
@@ -451,7 +489,11 @@ class CalloutHttpPolicyV4Test {
         void should_not_add_null_header_to_callout_call() {
             wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"a-value\"}")));
 
-            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
+                .request(aRequest().build())
+                .build();
 
             policy(
                 CalloutHttpPolicyConfiguration.builder()
@@ -481,7 +523,11 @@ class CalloutHttpPolicyV4Test {
         void should_send_static_body_to_callout_call() {
             wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"a-value\"}")));
 
-            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
+                .request(aRequest().build())
+                .build();
 
             String body = "static body";
             policy(CalloutHttpPolicyConfiguration.builder().url(targetUrl(false)).method(HttpMethod.GET).body(body).build())
@@ -505,6 +551,7 @@ class CalloutHttpPolicyV4Test {
             String body = "dynamic body";
             var ctx = new ExecutionContextBuilder()
                 .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
                 .request(aRequest().header("X-Body", body).build())
                 .build();
 
@@ -533,7 +580,11 @@ class CalloutHttpPolicyV4Test {
         void should_add_variables_in_context_when_callout_succeed(boolean exitOnError) {
             wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"a-value\"}")));
 
-            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
+                .request(aRequest().build())
+                .build();
 
             policy(
                 CalloutHttpPolicyConfiguration.builder()
@@ -562,7 +613,11 @@ class CalloutHttpPolicyV4Test {
         void should_call_and_do_nothing_when_no_variables_defined(boolean exitOnError) {
             wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"a-value\"}")));
 
-            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
+                .request(aRequest().build())
+                .build();
 
             policy(
                 CalloutHttpPolicyConfiguration.builder()
@@ -585,7 +640,11 @@ class CalloutHttpPolicyV4Test {
         void should_interrupt_when_exitOnError_and_use_default_message_when_no_error_content_defined() {
             wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(400).withBody("Bad request")));
 
-            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
+                .request(aRequest().build())
+                .build();
 
             policy(
                 CalloutHttpPolicyConfiguration.builder()
@@ -612,7 +671,11 @@ class CalloutHttpPolicyV4Test {
         void should_interrupt_when_exitOnError_and_use_provided_configuration() {
             wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(400).withBody("Bad request")));
 
-            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
+                .request(aRequest().build())
+                .build();
 
             policy(
                 CalloutHttpPolicyConfiguration.builder()
@@ -642,7 +705,11 @@ class CalloutHttpPolicyV4Test {
         void should_call_and_do_nothing_when_fire_and_forget_defined(boolean exitOnError) {
             wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"a-value\"}")));
 
-            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
+                .request(aRequest().build())
+                .build();
 
             policy(
                 CalloutHttpPolicyConfiguration.builder()
@@ -676,6 +743,7 @@ class CalloutHttpPolicyV4Test {
 
             var ctx = new ExecutionContextBuilder()
                 .withComponent(Vertx.class, Vertx.vertx())
+                .withComponent(Configuration.class, nodeConfiguration)
                 .request(aRequest().header("X-Header2", "value2").build())
                 .build();
 
@@ -711,19 +779,19 @@ class CalloutHttpPolicyV4Test {
                 .request(aRequest().header("X-Header2", "value2").build())
                 .build();
 
-            policy(CalloutHttpPolicyConfiguration.builder().useSystemProxy(true).url(targetUrl(false)).method(HttpMethod.GET).build())
-                .onResponse(ctx)
-                .test()
-                .awaitDone(30, TimeUnit.SECONDS)
-                .assertComplete();
+            // Ensure the configuration and proxy states trigger the correct path
+            var config = CalloutHttpPolicyConfiguration.builder().useSystemProxy(true).url(targetUrl(false)).method(HttpMethod.GET).build();
+            config.getProxy().setEnabled(false);
+
+            policy(config).onResponse(ctx).test().awaitDone(30, TimeUnit.SECONDS).assertComplete();
 
             wiremock.verify(getRequestedFor(urlPathEqualTo("/")));
 
-            verify(nodeConfiguration).getProperty("system.proxy.port");
-            verify(nodeConfiguration).getProperty("system.proxy.type");
-            verify(nodeConfiguration).getProperty("system.proxy.host");
-            verify(nodeConfiguration).getProperty("system.proxy.username");
-            verify(nodeConfiguration).getProperty("system.proxy.password");
+            verify(nodeConfiguration, atLeastOnce()).getProperty("system.proxy.port");
+            verify(nodeConfiguration, atLeastOnce()).getProperty("system.proxy.type");
+            verify(nodeConfiguration, atLeastOnce()).getProperty("system.proxy.host");
+            verify(nodeConfiguration, atLeastOnce()).getProperty("system.proxy.username");
+            verify(nodeConfiguration, atLeastOnce()).getProperty("system.proxy.password");
         }
     }
 
@@ -741,6 +809,7 @@ class CalloutHttpPolicyV4Test {
             when(ctx.getTemplateEngine(any())).thenReturn(TemplateEngine.templateEngine());
             when(ctx.getTemplateEngine()).thenReturn(TemplateEngine.templateEngine());
             when(ctx.getComponent(Vertx.class)).thenReturn(Vertx.vertx());
+            when(ctx.getComponent(Configuration.class)).thenReturn(nodeConfiguration);
             when(ctx.getTracer()).thenReturn(mock(Tracer.class));
 
             List<KafkaMessage> messages = new ArrayList<>();
@@ -779,6 +848,7 @@ class CalloutHttpPolicyV4Test {
             when(ctx.getTemplateEngine(any())).thenReturn(TemplateEngine.templateEngine());
             when(ctx.getTemplateEngine()).thenReturn(TemplateEngine.templateEngine());
             when(ctx.getComponent(Vertx.class)).thenReturn(Vertx.vertx());
+            when(ctx.getComponent(Configuration.class)).thenReturn(nodeConfiguration);
             when(ctx.getTracer()).thenReturn(mock(Tracer.class));
 
             List<KafkaMessage> messages = new ArrayList<>();
@@ -804,13 +874,11 @@ class CalloutHttpPolicyV4Test {
     }
 
     String targetUrl(boolean https) {
-        if (https) {
-            return "https://localhost:" + wiremock.getHttpsPort() + "/";
-        }
-        return "http://localhost:" + wiremock.getPort() + "/";
+        return https ? "https://localhost:" + wiremock.getHttpsPort() + "/" : "http://localhost:" + wiremock.getPort() + "/";
     }
 
     CalloutHttpPolicy policy(CalloutHttpPolicyConfiguration configuration) {
+        if (configuration.getHttp() == null) configuration.setHttp(new HttpClientOptions());
         return new CalloutHttpPolicy(configuration);
     }
 }

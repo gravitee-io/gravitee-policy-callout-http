@@ -27,7 +27,10 @@ import io.gravitee.node.api.configuration.Configuration;
 import io.gravitee.node.api.opentelemetry.Span;
 import io.gravitee.node.api.opentelemetry.http.ObservableHttpClientRequest;
 import io.gravitee.node.api.opentelemetry.http.ObservableHttpClientResponse;
-import io.gravitee.node.vertx.proxy.VertxProxyOptionsUtils;
+import io.gravitee.node.vertx.client.http.VertxHttpClientFactory;
+import io.gravitee.plugin.mappers.HttpClientOptionsMapper;
+import io.gravitee.plugin.mappers.HttpProxyOptionsMapper;
+import io.gravitee.plugin.mappers.SslOptionsMapper;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
 import io.gravitee.policy.callout.configuration.HttpHeader;
 import io.gravitee.policy.v3.callout.CalloutHttpPolicyV3;
@@ -35,15 +38,14 @@ import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
-import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.RequestOptions;
-import io.vertx.rxjava3.core.Vertx;
 import io.vertx.rxjava3.core.buffer.Buffer;
 import io.vertx.rxjava3.core.http.HttpClient;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -53,7 +55,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy, KafkaPolicy {
 
-    private volatile HttpClient httpClient;
+    private final AtomicReference<HttpClient> httpClientRef = new AtomicReference<>();
 
     public CalloutHttpPolicy(CalloutHttpPolicyConfiguration configuration) {
         super(configuration);
@@ -90,13 +92,15 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
     }
 
     private Completable doCallOut(BaseExecutionContext ctx, TemplateEngine templateEngine) {
-        return CalloutUtils.prepareCalloutRequest(templateEngine, configuration).flatMapCompletable(reqConfig -> {
-            if (configuration.isFireAndForget()) {
-                return Completable.fromRunnable(() -> executeCallOut(ctx, reqConfig).onErrorComplete().subscribe());
-            } else {
-                return executeCallOut(ctx, reqConfig);
-            }
-        });
+        return CalloutUtils
+            .prepareCalloutRequest(templateEngine, configuration)
+            .flatMapCompletable(reqConfig -> {
+                if (configuration.isFireAndForget()) {
+                    return Completable.fromRunnable(() -> executeCallOut(ctx, reqConfig).onErrorComplete().subscribe());
+                } else {
+                    return executeCallOut(ctx, reqConfig);
+                }
+            });
     }
 
     private Completable executeCallOut(BaseExecutionContext ctx, Req reqConfig) {
@@ -114,16 +118,20 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
                         .headerList()
                         .stream()
                         .filter(header -> header.getValue() != null)
-                        .forEach(header -> req.putHeader(header.getName(), header.getValue()));
+                        .forEach(header -> {
+                            try {
+                                req.putHeader(header.getName(), header.getValue());
+                            } catch (Exception e) {
+                                log.warn("Could not set header [{}]: {}", header.getName(), e.getMessage());
+                            }
+                        });
                 }
 
                 if (reqConfig.body().isPresent() && !reqConfig.body().get().isEmpty()) {
                     req.headers().remove(HttpHeaders.TRANSFER_ENCODING);
-                    // Removing Content-Length header to let VertX automatically set it correctly
                     req.headers().remove(HttpHeaders.CONTENT_LENGTH);
                     return req.rxSend(Buffer.buffer(reqConfig.body().get()));
                 }
-
                 return req.send();
             })
             .onErrorResumeNext(throwable -> Single.error(new CalloutException(throwable)))
@@ -193,10 +201,12 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
     }
 
     private Completable processSuccess(BaseExecutionContext ctx) {
-        return Flowable.fromIterable(configuration.getVariables())
+        return Flowable
+            .fromIterable(configuration.getVariables())
             .flatMapCompletable(variable -> {
                 ctx.setAttribute(variable.getName(), null);
-                return Maybe.just(variable)
+                return Maybe
+                    .just(variable)
                     .flatMap(var -> {
                         Class<?> clazz = var.isEvaluateAsString() ? String.class : Object.class;
                         return ctx.getTemplateEngine().eval(var.getValue(), clazz);
@@ -208,7 +218,8 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
     }
 
     private Completable processError(BaseExecutionContext ctx) {
-        return Maybe.fromSupplier(configuration::getErrorContent)
+        return Maybe
+            .fromSupplier(configuration::getErrorContent)
             .flatMap(content -> ctx.getTemplateEngine().eval(content, String.class))
             .switchIfEmpty(Single.just("Request is terminated."))
             .flatMapCompletable(errorContent -> {
@@ -232,24 +243,30 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
      * @return Built or existing HttpClient
      */
     private HttpClient getHttpClient(BaseExecutionContext ctx) {
-        if (this.httpClient == null) {
-            // Vertx only uses ssl options when https
-            var options = new HttpClientOptions().setSsl(true).setTrustAll(true).setVerifyHost(false);
-
-            if (configuration.isUseSystemProxy()) {
-                Configuration config = ctx.getComponent(Configuration.class);
-                try {
-                    options.setProxyOptions(VertxProxyOptionsUtils.buildProxyOptions(config));
-                } catch (IllegalStateException e) {
-                    log.warn(
-                        "CalloutHttp requires a system proxy to be defined but some configurations are missing or not well defined: {}. Ignoring proxy",
-                        e.getMessage()
-                    );
-                }
-            }
-            var vertx = ctx.getComponent(Vertx.class);
-            this.httpClient = vertx.createHttpClient(options);
+        HttpClient current = httpClientRef.get();
+        if (current != null) {
+            return current;
         }
-        return this.httpClient;
+
+        io.vertx.core.http.HttpClient coreClient = VertxHttpClientFactory
+            .builder()
+            .vertx(ctx.getComponent(io.vertx.rxjava3.core.Vertx.class))
+            .nodeConfiguration(ctx.getComponent(Configuration.class))
+            .defaultTarget(configuration.getUrl())
+            .httpOptions(HttpClientOptionsMapper.INSTANCE.map(configuration.getHttp()))
+            .sslOptions(SslOptionsMapper.INSTANCE.map(configuration.getSsl()))
+            .proxyOptions(HttpProxyOptionsMapper.INSTANCE.map(configuration.getProxy()))
+            .build()
+            .createHttpClient()
+            .getDelegate();
+
+        HttpClient newClient = HttpClient.newInstance(coreClient);
+
+        if (httpClientRef.compareAndSet(null, newClient)) {
+            return newClient;
+        } else {
+            newClient.close();
+            return httpClientRef.get();
+        }
     }
 }

@@ -25,7 +25,10 @@ import io.gravitee.gateway.api.stream.BufferedReadWriteStream;
 import io.gravitee.gateway.api.stream.ReadWriteStream;
 import io.gravitee.gateway.api.stream.SimpleReadWriteStream;
 import io.gravitee.node.api.configuration.Configuration;
-import io.gravitee.node.vertx.proxy.VertxProxyOptionsUtils;
+import io.gravitee.node.vertx.client.http.VertxHttpClientFactory;
+import io.gravitee.plugin.mappers.HttpClientOptionsMapper;
+import io.gravitee.plugin.mappers.HttpProxyOptionsMapper;
+import io.gravitee.plugin.mappers.SslOptionsMapper;
 import io.gravitee.policy.api.PolicyChain;
 import io.gravitee.policy.api.PolicyResult;
 import io.gravitee.policy.api.annotations.OnRequest;
@@ -36,16 +39,15 @@ import io.gravitee.policy.callout.CalloutResponse;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
 import io.gravitee.policy.callout.configuration.PolicyScope;
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.RequestOptions;
 import java.net.URI;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,11 +75,8 @@ public class CalloutHttpPolicyV3 {
      */
     protected final CalloutHttpPolicyConfiguration configuration;
 
-    /**
-     * Create a new CalloutHttp Policy instance based on its associated configuration
-     *
-     * @param configuration the associated configuration to the new CalloutHttp Policy instance
-     */
+    private final AtomicReference<HttpClient> httpClientRef = new AtomicReference<>();
+
     public CalloutHttpPolicyV3(CalloutHttpPolicyConfiguration configuration) {
         this.configuration = configuration;
     }
@@ -172,8 +171,6 @@ public class CalloutHttpPolicyV3 {
     }
 
     private void doCallout(ExecutionContext context, Consumer<Void> onSuccess, Consumer<PolicyResult> onError) {
-        Vertx vertx = context.getComponent(Vertx.class);
-
         final Consumer<Void> onSuccessCallback;
         final Consumer<PolicyResult> onErrorCallback;
 
@@ -192,26 +189,7 @@ public class CalloutHttpPolicyV3 {
 
         try {
             String url = context.getTemplateEngine().evalNow(configuration.getUrl(), String.class);
-            URI target = URI.create(url);
-
-            HttpClientOptions options = new HttpClientOptions();
-            if (HTTPS_SCHEME.equalsIgnoreCase(target.getScheme())) {
-                options.setSsl(true).setTrustAll(true).setVerifyHost(false);
-            }
-
-            if (configuration.isUseSystemProxy()) {
-                Configuration configuration = context.getComponent(Configuration.class);
-                try {
-                    options.setProxyOptions(VertxProxyOptionsUtils.buildProxyOptions(configuration));
-                } catch (IllegalStateException e) {
-                    LOGGER.warn(
-                        "CalloutHttp requires a system proxy to be defined but some configurations are missing or not well defined: {}. Ignoring proxy",
-                        e.getMessage()
-                    );
-                }
-            }
-
-            HttpClient httpClient = vertx.createHttpClient(options);
+            HttpClient httpClient = getOrInitClient(context, url);
 
             RequestOptions requestOpts = new RequestOptions().setAbsoluteURI(url).setMethod(convert(configuration.getMethod()));
 
@@ -235,7 +213,11 @@ public class CalloutHttpPolicyV3 {
                                     httpClientRequest.putHeader(header.getName(), extValue);
                                 }
                             } catch (Exception ex) {
-                                // Do nothing
+                                LOGGER.warn(
+                                    "An error occurred while evaluating header value for [{}]: {}",
+                                    header.getName(),
+                                    ex.getMessage()
+                                );
                             }
                         });
                 }
@@ -258,7 +240,7 @@ public class CalloutHttpPolicyV3 {
                 }
 
                 futureResponse
-                    .onSuccess(httpResponse -> handleSuccess(context, onSuccessCallback, onErrorCallback, httpClient, httpResponse))
+                    .onSuccess(httpResponse -> handleSuccess(context, onSuccessCallback, onErrorCallback, httpResponse))
                     .onFailure(throwable -> handleFailure(onSuccessCallback, onErrorCallback, httpClient, throwable));
             });
         } catch (Exception ex) {
@@ -266,11 +248,44 @@ public class CalloutHttpPolicyV3 {
         }
     }
 
+    private HttpClient getOrInitClient(ExecutionContext context, String url) {
+        HttpClient current = httpClientRef.get();
+        if (current != null) {
+            return current;
+        }
+
+        HttpClient newClient = createClient(context, url);
+
+        if (httpClientRef.compareAndSet(null, newClient)) {
+            return newClient;
+        } else {
+            newClient.close();
+            return httpClientRef.get();
+        }
+    }
+
+    private HttpClient createClient(ExecutionContext context, String url) {
+        URI target = URI.create(url);
+
+        io.vertx.core.Vertx coreVertx = context.getComponent(io.vertx.core.Vertx.class);
+        io.vertx.rxjava3.core.Vertx rxVertx = io.vertx.rxjava3.core.Vertx.newInstance(coreVertx);
+
+        return VertxHttpClientFactory.builder()
+            .vertx(rxVertx)
+            .nodeConfiguration(context.getComponent(Configuration.class))
+            .defaultTarget(target.toString())
+            .httpOptions(HttpClientOptionsMapper.INSTANCE.map(configuration.getHttp()))
+            .sslOptions(SslOptionsMapper.INSTANCE.map(configuration.getSsl()))
+            .proxyOptions(HttpProxyOptionsMapper.INSTANCE.map(configuration.getProxy()))
+            .build()
+            .createHttpClient()
+            .getDelegate();
+    }
+
     private void handleSuccess(
         ExecutionContext context,
         Consumer<Void> onSuccess,
         Consumer<PolicyResult> onError,
-        HttpClient httpClient,
         HttpClientResponse httpResponse
     ) {
         httpResponse.bodyHandler(body -> {
@@ -278,9 +293,6 @@ public class CalloutHttpPolicyV3 {
 
             // Put response into template variable for EL
             final CalloutResponse calloutResponse = new CalloutResponse(httpResponse, body.toString());
-
-            // Close HTTP client
-            httpClient.close();
 
             if (!configuration.isFireAndForget()) {
                 // Variables and exit on error are only managed if the fire & forget is disabled.
@@ -307,7 +319,11 @@ public class CalloutHttpPolicyV3 {
                                         context.setAttribute(variable.getName(), null);
                                     }
                                 } catch (Throwable ex) {
-                                    // Do nothing
+                                    LOGGER.warn(
+                                        "An error occurred while evaluating variable [{}]: {}",
+                                        variable.getName(),
+                                        ex.getMessage()
+                                    );
                                 }
                             });
                     }
@@ -321,7 +337,7 @@ public class CalloutHttpPolicyV3 {
                     try {
                         errorContent = tplEngine.evalNow(configuration.getErrorContent(), String.class);
                     } catch (Exception ex) {
-                        // Do nothing
+                        LOGGER.warn("An error occurred while evaluating error content: {}", ex.getMessage());
                     }
 
                     if (errorContent == null || errorContent.isEmpty()) {
@@ -342,8 +358,6 @@ public class CalloutHttpPolicyV3 {
             // otherwise continue chaining
             onSuccess.accept(null);
         }
-
-        httpClient.close();
     }
 
     protected HttpMethod convert(io.gravitee.common.http.HttpMethod httpMethod) {
