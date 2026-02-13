@@ -43,6 +43,7 @@ The `policy-http-callout` policy can be applied to the following API types and f
 * `NATIVE KAFKA`
 * `MCP PROXY`
 * `LLM PROXY`
+* `A2A PROXY`
 
 ### Supported flow phases:
 
