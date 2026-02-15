@@ -59,6 +59,16 @@ public class KafkaMessageStub implements KafkaMessage {
     }
 
     @Override
+    public KafkaMessage key(Buffer buffer) {
+        return null;
+    }
+
+    @Override
+    public KafkaMessage key(String s) {
+        return null;
+    }
+
+    @Override
     public long offset() {
         return 0;
     }
@@ -76,6 +86,11 @@ public class KafkaMessageStub implements KafkaMessage {
     @Override
     public String topic() {
         return "";
+    }
+
+    @Override
+    public int sizeInBytes() {
+        return 0;
     }
 
     @Override

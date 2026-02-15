@@ -98,7 +98,7 @@ class CalloutHttpPolicyV4Test {
         HttpClientOptions httpOptions = new HttpClientOptions();
         httpOptions.setConnectTimeout(1000L);
         httpOptions.setReadTimeout(1000L);
-        configuration.setHttp(httpOptions);
+        configuration.setHttpClientOptions(httpOptions);
 
         String url = "http://localhost:" + wireMockServer.port();
         configuration.setUrl(url);

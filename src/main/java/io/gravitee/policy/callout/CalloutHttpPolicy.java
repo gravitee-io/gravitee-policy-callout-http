@@ -242,9 +242,9 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
                         .vertx(ctx.getComponent(io.vertx.rxjava3.core.Vertx.class))
                         .nodeConfiguration(ctx.getComponent(Configuration.class))
                         .defaultTarget(defaultUrl)
-                        .httpOptions(HttpClientOptionsMapper.INSTANCE.map(configuration.getHttp()))
-                        .proxyOptions(HttpProxyOptionsMapper.INSTANCE.map(configuration.getProxy()))
-                        .sslOptions(SslOptionsMapper.INSTANCE.map(configuration.getSsl()))
+                        .httpOptions(HttpClientOptionsMapper.INSTANCE.map(configuration.getHttpClientOptions()))
+                        .proxyOptions(HttpProxyOptionsMapper.INSTANCE.map(configuration.getHttpProxyOptions()))
+                        .sslOptions(SslOptionsMapper.INSTANCE.map(configuration.getSslOptions()))
                         .build()
                         .createHttpClient()
                         .getDelegate();

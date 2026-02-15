@@ -24,11 +24,7 @@ import io.gravitee.plugin.configurations.ssl.SslOptions;
 import io.gravitee.policy.api.PolicyConfiguration;
 import java.util.ArrayList;
 import java.util.List;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
@@ -39,6 +35,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @Getter
 @Setter
+@Data
 public class CalloutHttpPolicyConfiguration implements PolicyConfiguration {
 
     @Builder.Default
@@ -67,12 +64,26 @@ public class CalloutHttpPolicyConfiguration implements PolicyConfiguration {
 
     private String errorContent;
 
-    @JsonProperty("http")
-    private HttpClientOptions http = new HttpClientOptions();
+    @Setter(AccessLevel.NONE)
+    private boolean useSystemProxy;
 
-    @JsonProperty("ssl")
-    private SslOptions ssl = new SslOptions();
+    @JsonProperty("http")
+    private HttpClientOptions httpClientOptions = new HttpClientOptions();
 
     @JsonProperty("proxy")
-    private HttpProxyOptions proxy = new HttpProxyOptions();
+    private HttpProxyOptions httpProxyOptions = new HttpProxyOptions();
+
+    @JsonProperty("ssl")
+    private SslOptions sslOptions = new SslOptions();
+
+    public void setUseSystemProxy(boolean useSystemProxy) {
+        this.useSystemProxy = useSystemProxy;
+        // smooth migration: older versions of the plugin didn't have the httpProxyOptions property,
+        // so we simply set the httpProxyOptions.enabled and httpProxyOptions.setUseSystemProxy property
+        // to avoid huge data migration.
+        if (useSystemProxy) {
+            this.httpProxyOptions.setEnabled(true);
+            this.httpProxyOptions.setUseSystemProxy(true);
+        }
+    }
 }
