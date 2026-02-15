@@ -147,7 +147,7 @@ public class CalloutHttpPolicyV3Test {
         stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"value\"}")));
 
         when(configuration.getMethod()).thenReturn(HttpMethod.GET);
-        when(configuration.isUseSystemProxy()).thenReturn(true);
+        // when(configuration.isUseSystemProxy()).thenReturn(true);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
 
         final CountDownLatch lock = new CountDownLatch(1);

@@ -30,23 +30,24 @@
     <parent>
         <groupId>io.gravitee</groupId>
         <artifactId>gravitee-parent</artifactId>
-        <version>22.6.0</version>
+        <version>23.5.0</version>
     </parent>
 
     <properties>
         <gravitee-apim.version>4.6.0</gravitee-apim.version>
 
+        <gravitee-plugin-common-configurations.version>1.0.0-alpha.4</gravitee-plugin-common-configurations.version>
+        <gravitee-plugin-common-configurations-maven-plugin.version>1.0.0-alpha.3</gravitee-plugin-common-configurations-maven-plugin.version>
+
         <gravitee-reactor-message.version>5.0.0</gravitee-reactor-message.version>
         <gravitee-entrypoint-sse.version>5.0.0</gravitee-entrypoint-sse.version>
 
         <properties-maven-plugin.version>1.3.0</properties-maven-plugin.version>
-        <!-- Property used by the publication job in CI-->
         <publish-folder-path>graviteeio-apim/plugins/policies</publish-folder-path>
     </properties>
 
     <dependencyManagement>
         <dependencies>
-            <!-- Import bom to properly inherit all dependencies -->
             <dependency>
                 <groupId>io.gravitee.apim</groupId>
                 <artifactId>gravitee-apim-bom</artifactId>
@@ -58,7 +59,6 @@
     </dependencyManagement>
 
     <dependencies>
-        <!-- Provided scope -->
         <dependency>
             <groupId>io.gravitee.gateway</groupId>
             <artifactId>gravitee-gateway-api</artifactId>
@@ -68,17 +68,26 @@
         <dependency>
             <groupId>io.gravitee.node</groupId>
             <artifactId>gravitee-node-api</artifactId>
+            <version>7.18.3</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>io.gravitee.node</groupId>
             <artifactId>gravitee-node-vertx</artifactId>
+            <version>7.18.3</version>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>io.gravitee.el</groupId>
             <artifactId>gravitee-expression-language</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.gravitee.plugin</groupId>
+            <artifactId>gravitee-plugin-common-configurations</artifactId>
+            <version>${gravitee-plugin-common-configurations.version}</version>
             <scope>provided</scope>
         </dependency>
 
@@ -224,6 +233,27 @@
                         <phase>package</phase>
                         <goals>
                             <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>io.gravitee.plugin</groupId>
+                <artifactId>gravitee-plugin-common-configurations-maven-plugin</artifactId>
+                <version>${gravitee-plugin-common-configurations-maven-plugin.version}</version>
+                <configuration>
+                    <includeArtifacts>
+                        <include>io.gravitee.plugin:gravitee-plugin-common-configurations</include>
+                    </includeArtifacts>
+
+                    <includeSchemas>
+                        <include>schemas/schema-form.json</include>
+                    </includeSchemas>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>common-schema-form-bundle</goal>
                         </goals>
                     </execution>
                 </executions>

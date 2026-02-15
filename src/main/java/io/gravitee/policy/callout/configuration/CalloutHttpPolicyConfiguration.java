@@ -15,8 +15,12 @@
  */
 package io.gravitee.policy.callout.configuration;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.gravitee.common.http.HttpMethod;
 import io.gravitee.common.http.HttpStatusCode;
+import io.gravitee.plugin.configurations.http.HttpClientOptions;
+import io.gravitee.plugin.configurations.http.HttpProxyOptions;
+import io.gravitee.plugin.configurations.ssl.SslOptions;
 import io.gravitee.policy.api.PolicyConfiguration;
 import java.util.ArrayList;
 import java.util.List;
@@ -63,5 +67,12 @@ public class CalloutHttpPolicyConfiguration implements PolicyConfiguration {
 
     private String errorContent;
 
-    private boolean useSystemProxy;
+    @JsonProperty("http")
+    private HttpClientOptions http;
+
+    @JsonProperty("ssl")
+    private SslOptions ssl;
+
+    @JsonProperty("proxy")
+    private HttpProxyOptions proxy;
 }

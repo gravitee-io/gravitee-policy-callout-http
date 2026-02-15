@@ -25,7 +25,10 @@ import io.gravitee.gateway.api.stream.BufferedReadWriteStream;
 import io.gravitee.gateway.api.stream.ReadWriteStream;
 import io.gravitee.gateway.api.stream.SimpleReadWriteStream;
 import io.gravitee.node.api.configuration.Configuration;
-import io.gravitee.node.vertx.proxy.VertxProxyOptionsUtils;
+import io.gravitee.node.vertx.client.http.VertxHttpClientFactory;
+import io.gravitee.plugin.mappers.HttpClientOptionsMapper;
+import io.gravitee.plugin.mappers.HttpProxyOptionsMapper;
+import io.gravitee.plugin.mappers.SslOptionsMapper;
 import io.gravitee.policy.api.PolicyChain;
 import io.gravitee.policy.api.PolicyResult;
 import io.gravitee.policy.api.annotations.OnRequest;
@@ -72,6 +75,8 @@ public class CalloutHttpPolicyV3 {
      * The associated configuration to this CalloutHttp Policy
      */
     protected final CalloutHttpPolicyConfiguration configuration;
+
+    private volatile HttpClient httpClient;
 
     /**
      * Create a new CalloutHttp Policy instance based on its associated configuration
@@ -172,8 +177,6 @@ public class CalloutHttpPolicyV3 {
     }
 
     private void doCallout(ExecutionContext context, Consumer<Void> onSuccess, Consumer<PolicyResult> onError) {
-        Vertx vertx = context.getComponent(Vertx.class);
-
         final Consumer<Void> onSuccessCallback;
         final Consumer<PolicyResult> onErrorCallback;
 
@@ -192,32 +195,14 @@ public class CalloutHttpPolicyV3 {
 
         try {
             String url = context.getTemplateEngine().evalNow(configuration.getUrl(), String.class);
-            URI target = URI.create(url);
 
-            HttpClientOptions options = new HttpClientOptions();
-            if (HTTPS_SCHEME.equalsIgnoreCase(target.getScheme())) {
-                options.setSsl(true).setTrustAll(true).setVerifyHost(false);
-            }
-
-            if (configuration.isUseSystemProxy()) {
-                Configuration configuration = context.getComponent(Configuration.class);
-                try {
-                    options.setProxyOptions(VertxProxyOptionsUtils.buildProxyOptions(configuration));
-                } catch (IllegalStateException e) {
-                    LOGGER.warn(
-                        "CalloutHttp requires a system proxy to be defined but some configurations are missing or not well defined: {}. Ignoring proxy",
-                        e.getMessage()
-                    );
-                }
-            }
-
-            HttpClient httpClient = vertx.createHttpClient(options);
+            HttpClient httpClient = getOrBuildHttpClient(context);
 
             RequestOptions requestOpts = new RequestOptions().setAbsoluteURI(url).setMethod(convert(configuration.getMethod()));
 
             final Future<HttpClientRequest> futureRequest = httpClient.request(requestOpts);
 
-            futureRequest.onFailure(throwable -> handleFailure(onSuccessCallback, onErrorCallback, httpClient, throwable));
+            futureRequest.onFailure(throwable -> handleFailure(onSuccessCallback, onErrorCallback, throwable));
 
             futureRequest.onSuccess(httpClientRequest -> {
                 // Connection is made, lets continue.
@@ -235,7 +220,7 @@ public class CalloutHttpPolicyV3 {
                                     httpClientRequest.putHeader(header.getName(), extValue);
                                 }
                             } catch (Exception ex) {
-                                // Do nothing
+                                LOGGER.warn("Could not set header [{}]: {}", header.getName(), ex.getMessage());
                             }
                         });
                 }
@@ -258,8 +243,8 @@ public class CalloutHttpPolicyV3 {
                 }
 
                 futureResponse
-                    .onSuccess(httpResponse -> handleSuccess(context, onSuccessCallback, onErrorCallback, httpClient, httpResponse))
-                    .onFailure(throwable -> handleFailure(onSuccessCallback, onErrorCallback, httpClient, throwable));
+                    .onSuccess(httpResponse -> handleSuccess(context, onSuccessCallback, onErrorCallback, httpResponse))
+                    .onFailure(throwable -> handleFailure(onSuccessCallback, onErrorCallback, throwable));
             });
         } catch (Exception ex) {
             onErrorCallback.accept(PolicyResult.failure(CALLOUT_HTTP_ERROR, "Unable to apply expression language on the configured URL"));
@@ -270,7 +255,6 @@ public class CalloutHttpPolicyV3 {
         ExecutionContext context,
         Consumer<Void> onSuccess,
         Consumer<PolicyResult> onError,
-        HttpClient httpClient,
         HttpClientResponse httpResponse
     ) {
         httpResponse.bodyHandler(body -> {
@@ -278,9 +262,6 @@ public class CalloutHttpPolicyV3 {
 
             // Put response into template variable for EL
             final CalloutResponse calloutResponse = new CalloutResponse(httpResponse, body.toString());
-
-            // Close HTTP client
-            httpClient.close();
 
             if (!configuration.isFireAndForget()) {
                 // Variables and exit on error are only managed if the fire & forget is disabled.
@@ -307,7 +288,7 @@ public class CalloutHttpPolicyV3 {
                                         context.setAttribute(variable.getName(), null);
                                     }
                                 } catch (Throwable ex) {
-                                    // Do nothing
+                                    LOGGER.warn("Could not set variable [{}]: {}", variable.getName(), ex.getMessage());
                                 }
                             });
                     }
@@ -321,7 +302,7 @@ public class CalloutHttpPolicyV3 {
                     try {
                         errorContent = tplEngine.evalNow(configuration.getErrorContent(), String.class);
                     } catch (Exception ex) {
-                        // Do nothing
+                        LOGGER.warn("Could not evaluate error content: {}", ex.getMessage());
                     }
 
                     if (errorContent == null || errorContent.isEmpty()) {
@@ -334,7 +315,7 @@ public class CalloutHttpPolicyV3 {
         });
     }
 
-    private void handleFailure(Consumer<Void> onSuccess, Consumer<PolicyResult> onError, HttpClient httpClient, Throwable throwable) {
+    private void handleFailure(Consumer<Void> onSuccess, Consumer<PolicyResult> onError, Throwable throwable) {
         if (configuration.isExitOnError()) {
             // exit chain only if policy ask ExitOnError
             onError.accept(PolicyResult.failure(CALLOUT_HTTP_ERROR, throwable.getMessage()));
@@ -342,8 +323,6 @@ public class CalloutHttpPolicyV3 {
             // otherwise continue chaining
             onSuccess.accept(null);
         }
-
-        httpClient.close();
     }
 
     protected HttpMethod convert(io.gravitee.common.http.HttpMethod httpMethod) {
@@ -371,5 +350,35 @@ public class CalloutHttpPolicyV3 {
         }
 
         return null;
+    }
+
+    private HttpClient getOrBuildHttpClient(ExecutionContext ctx) {
+        if (httpClient == null) {
+            synchronized (this) {
+                if (httpClient == null) {
+                    String defaultUrl = ctx.getTemplateEngine().evalNow(configuration.getUrl(), String.class);
+
+                    // 1. Get Core Vertx from context (V3 API)
+                    Vertx coreVertx = ctx.getComponent(Vertx.class);
+
+                    // 2. Wrap it into RxJava3 Vertx because VertxHttpClientFactory requires it
+                    io.vertx.rxjava3.core.Vertx rxVertx = io.vertx.rxjava3.core.Vertx.newInstance(coreVertx);
+
+                    // 3. Use the Factory to build the client (returns RxJava3 HttpClient)
+                    // 4. Unwrap it (.getDelegate()) back to Core HttpClient
+                    httpClient = VertxHttpClientFactory.builder()
+                        .vertx(rxVertx)
+                        .nodeConfiguration(ctx.getComponent(Configuration.class))
+                        .defaultTarget(defaultUrl)
+                        .httpOptions(HttpClientOptionsMapper.INSTANCE.map(configuration.getHttp()))
+                        .proxyOptions(HttpProxyOptionsMapper.INSTANCE.map(configuration.getProxy()))
+                        .sslOptions(SslOptionsMapper.INSTANCE.map(configuration.getSsl()))
+                        .build()
+                        .createHttpClient()
+                        .getDelegate();
+                }
+            }
+        }
+        return httpClient;
     }
 }
