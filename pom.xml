@@ -64,7 +64,7 @@
             <artifactId>gravitee-gateway-api</artifactId>
             <scope>provided</scope>
         </dependency>
-a
+
         <dependency>
             <groupId>io.gravitee.node</groupId>
             <artifactId>gravitee-node-api</artifactId>
@@ -272,9 +272,9 @@ a
                             <goal>common-schema-form-bundle</goal>
                         </goals>
                         <configuration>
-                            <schemas>
+                            <includeSchemas>
                                 <schema>src/main/resources/schemas/schema-form.json</schema>
-                            </schemas>
+                            </includeSchemas>
                         </configuration>
                     </execution>
                 </executions>
