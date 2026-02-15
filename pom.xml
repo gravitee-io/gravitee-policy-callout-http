@@ -36,8 +36,8 @@
     <properties>
         <gravitee-apim.version>4.10.0-alpha.1</gravitee-apim.version>
 
-        <gravitee-plugin-common-configurations.version>1.0.0</gravitee-plugin-common-configurations.version>
-        <gravitee-plugin-common-configurations-maven-plugin.version>1.0.0</gravitee-plugin-common-configurations-maven-plugin.version>
+        <gravitee-plugin-common-configurations.version>1.0.0-alpha.4</gravitee-plugin-common-configurations.version>
+        <gravitee-plugin-common-configurations-maven-plugin.version>1.0.0-alpha.3</gravitee-plugin-common-configurations-maven-plugin.version>
 
         <gravitee-reactor-message.version>5.0.0</gravitee-reactor-message.version>
         <gravitee-entrypoint-sse.version>5.0.0</gravitee-entrypoint-sse.version>
