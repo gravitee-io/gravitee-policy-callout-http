@@ -18,7 +18,6 @@ package io.gravitee.policy.callout.configuration;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.gravitee.common.http.HttpMethod;
 import io.gravitee.common.http.HttpStatusCode;
-import io.gravitee.plugin.annotation.ConfigurationEvaluator;
 import io.gravitee.plugin.configurations.http.HttpClientOptions;
 import io.gravitee.plugin.configurations.http.HttpProxyOptions;
 import io.gravitee.plugin.configurations.ssl.SslOptions;

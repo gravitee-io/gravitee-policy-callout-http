@@ -281,13 +281,13 @@
             }
         },
         "http": {
-            "$ref": "#/gioExternalDefinitions/httpClientOptions"
+            "$ref": "urn:jsonschema:io:gravitee:plugin:common:configurations:http:HttpClientOptions"
         },
         "proxy": {
-            "$ref": "#/gioExternalDefinitions/httpProxyOptions"
+            "$ref": "urn:jsonschema:io:gravitee:plugin:common:configurations:proxy:HttpProxyOptions"
         },
         "ssl": {
-            "$ref": "#/gioExternalDefinitions/sslOptions"
+            "$ref": "urn:jsonschema:io:gravitee:plugin:common:configurations:ssl:SslOptions"
         }
     },
     "required": ["url", "method", "exitOnError"]
