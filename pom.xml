@@ -34,9 +34,9 @@
     </parent>
 
     <properties>
-        <gravitee-apim.version>4.6.0</gravitee-apim.version>
+        <gravitee-apim.version>4.10.6</gravitee-apim.version>
 
-        <gravitee-reactor-message.version>5.0.0</gravitee-reactor-message.version>
+        <gravitee-reactor-message.version>9.0.0</gravitee-reactor-message.version>
         <gravitee-entrypoint-sse.version>5.0.0</gravitee-entrypoint-sse.version>
 
         <gravitee-plugin-common-configurations.version>1.0.0</gravitee-plugin-common-configurations.version>
@@ -266,8 +266,6 @@
                             <includeSchemas>
                                 <include>schemas/**/schema-form-*.json</include>
                             </includeSchemas>
-                            <localSchemaFile>${project.basedir}/src/main/resources/schemas/schema-form.json</localSchemaFile>
-                            <outputFile>${project.build.outputDirectory}/schemas/schema-form.json</outputFile>
                         </configuration>
                     </execution>
                 </executions>

@@ -284,6 +284,15 @@
                     }
                 ]
             }
+        },
+        "http": {
+            "$ref": "#/gioExternalDefinitions/httpClientOptions"
+        },
+        "proxy": {
+            "$ref": "#/gioExternalDefinitions/httpProxyOptions"
+        },
+        "ssl": {
+            "$ref": "#/gioExternalDefinitions/sslOptions"
         }
     },
     "required": ["url", "method", "exitOnError"]
