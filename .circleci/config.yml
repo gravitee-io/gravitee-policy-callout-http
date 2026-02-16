@@ -27,10 +27,6 @@ workflows:
                 value: << pipeline.git.tag >>
         jobs:
             - gravitee/setup_plugin-release-config:
-                  # Force the dynamic config to use JDK 21
-                  executor:
-                      name: gravitee/container
-                      jdk_version: "21"
                   filters:
                       branches:
                           ignore:
