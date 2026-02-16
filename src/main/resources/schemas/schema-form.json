@@ -295,5 +295,22 @@
             "$ref": "#/gioExternalDefinitions/sslOptions"
         }
     },
-    "required": ["url", "method", "exitOnError"]
+    "required": ["url", "method", "exitOnError"],
+    "gioExternalDefinitions": {
+        "httpClientOptions": {
+            "kind": "policy",
+            "name": "common-configurations",
+            "section": "http-client"
+        },
+        "httpProxyOptions": {
+            "kind": "policy",
+            "name": "common-configurations",
+            "section": "http-proxy"
+        },
+        "sslOptions": {
+            "kind": "policy",
+            "name": "common-configurations",
+            "section": "ssl"
+        }
+    }
 }
