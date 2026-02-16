@@ -15,14 +15,19 @@
  */
 package io.gravitee.policy.callout.configuration;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.gravitee.common.http.HttpMethod;
 import io.gravitee.common.http.HttpStatusCode;
+import io.gravitee.plugin.configurations.http.HttpClientOptions;
+import io.gravitee.plugin.configurations.http.HttpProxyOptions;
+import io.gravitee.plugin.configurations.ssl.SslOptions;
 import io.gravitee.policy.api.PolicyConfiguration;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Getter;
+import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
@@ -30,11 +35,10 @@ import lombok.Setter;
  * @author David BRASSELY (david.brassely at graviteesource.com)
  * @author GraviteeSource Team
  */
+@Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Getter
-@Setter
 public class CalloutHttpPolicyConfiguration implements PolicyConfiguration {
 
     @Builder.Default
@@ -63,5 +67,26 @@ public class CalloutHttpPolicyConfiguration implements PolicyConfiguration {
 
     private String errorContent;
 
+    @Setter(AccessLevel.NONE)
     private boolean useSystemProxy;
+
+    @JsonProperty("http")
+    @Builder.Default
+    private HttpClientOptions httpClientOptions = new HttpClientOptions();
+
+    @JsonProperty("proxy")
+    @Builder.Default
+    private HttpProxyOptions httpProxyOptions = new HttpProxyOptions();
+
+    @JsonProperty("ssl")
+    @Builder.Default
+    private SslOptions sslOptions = new SslOptions();
+
+    public void setUseSystemProxy(boolean useSystemProxy) {
+        this.useSystemProxy = useSystemProxy;
+        if (useSystemProxy) {
+            this.httpProxyOptions.setEnabled(true);
+            this.httpProxyOptions.setUseSystemProxy(true);
+        }
+    }
 }

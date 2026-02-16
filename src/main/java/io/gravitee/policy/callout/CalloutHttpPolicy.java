@@ -27,16 +27,18 @@ import io.gravitee.node.api.configuration.Configuration;
 import io.gravitee.node.api.opentelemetry.Span;
 import io.gravitee.node.api.opentelemetry.http.ObservableHttpClientRequest;
 import io.gravitee.node.api.opentelemetry.http.ObservableHttpClientResponse;
-import io.gravitee.node.vertx.proxy.VertxProxyOptionsUtils;
+import io.gravitee.node.vertx.client.http.VertxHttpClientFactory;
+import io.gravitee.plugin.mappers.HttpClientOptionsMapper;
+import io.gravitee.plugin.mappers.HttpProxyOptionsMapper;
+import io.gravitee.plugin.mappers.SslOptionsMapper;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
 import io.gravitee.policy.callout.configuration.HttpHeader;
 import io.gravitee.policy.v3.callout.CalloutHttpPolicyV3;
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Maybe;
+import io.reactivex.rxjava3.core.Observable;
 import io.reactivex.rxjava3.core.Single;
-import io.vertx.core.http.HttpClientOptions;
-import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.RequestOptions;
 import io.vertx.rxjava3.core.Vertx;
@@ -52,8 +54,6 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy, KafkaPolicy {
-
-    private volatile HttpClient httpClient;
 
     public CalloutHttpPolicy(CalloutHttpPolicyConfiguration configuration) {
         super(configuration);
@@ -100,8 +100,8 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
     }
 
     private Completable executeCallOut(BaseExecutionContext ctx, Req reqConfig) {
-        var httpClient = getHttpClient(ctx);
-        var requestOpts = new RequestOptions().setAbsoluteURI(reqConfig.url).setMethod(convert(configuration.getMethod()));
+        var httpClient = getHttpClient(ctx, reqConfig.url());
+        var requestOpts = new RequestOptions().setAbsoluteURI(reqConfig.url()).setMethod(convert(configuration.getMethod()));
         ObservableHttpClientRequest observableHttpClientRequest = new ObservableHttpClientRequest(requestOpts);
         Span httpRequestSpan = ctx.getTracer().startSpanFrom(observableHttpClientRequest);
         return httpClient
@@ -135,6 +135,7 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
             )
             .flatMapCompletable(calloutResponseWithDelegate -> processCalloutResponse(ctx, calloutResponseWithDelegate, httpRequestSpan))
             .onErrorResumeNext(th -> {
+                log.error("Callout policy failed with error", th);
                 ctx.getTracer().endOnError(httpRequestSpan, th);
 
                 if (th instanceof CalloutException && configuration.isExitOnError()) {
@@ -159,7 +160,7 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
         Span httpRequestSpan
     ) {
         CalloutResponse calloutResponse = calloutResponseWithDelegate.calloutResponse();
-        HttpClientResponse httpClientResponse = calloutResponseWithDelegate.httpClientResponse();
+        io.vertx.core.http.HttpClientResponse httpClientResponse = calloutResponseWithDelegate.httpClientResponse();
 
         // Create observable response for tracing
         ObservableHttpClientResponse observableHttpClientResponse = new ObservableHttpClientResponse(httpClientResponse);
@@ -169,48 +170,72 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
             return Completable.complete();
         }
 
-        // Variables and exit on error are only managed if the fire & forget is disabled.
-        ctx.getTemplateEngine().getTemplateContext().setVariable(TEMPLATE_VARIABLE, calloutResponse);
+        // Variables and exit on error are only managed if the fire & forget is
+        // disabled.
+        TemplateEngine templateEngine = ctx.getTemplateEngine();
+        templateEngine.getTemplateContext().setVariable("calloutResponse", calloutResponse);
+        ctx.setAttribute("calloutResponse", calloutResponse);
 
-        if (configuration.isExitOnError()) {
-            return ctx
-                .getTemplateEngine()
+        return evaluateErrorCondition(ctx, templateEngine, calloutResponse, observableHttpClientResponse, httpRequestSpan)
+            .andThen(processVariables(ctx, templateEngine))
+            .doOnTerminate(() -> ctx.getTracer().endWithResponse(httpRequestSpan, observableHttpClientResponse));
+    }
+
+    private Completable evaluateErrorCondition(
+        BaseExecutionContext ctx,
+        TemplateEngine templateEngine,
+        CalloutResponse calloutResponse,
+        ObservableHttpClientResponse observableHttpClientResponse,
+        Span httpRequestSpan
+    ) {
+        if (configuration.isExitOnError() && configuration.getErrorCondition() != null && !configuration.getErrorCondition().isEmpty()) {
+            return templateEngine
                 .eval(configuration.getErrorCondition(), Boolean.class)
+                .switchIfEmpty(Maybe.fromCallable(() -> Boolean.valueOf(configuration.getErrorCondition())))
                 .flatMapCompletable(exit -> {
-                    if (!exit) {
-                        ctx.getTracer().endWithResponse(httpRequestSpan, observableHttpClientResponse);
-                        return processSuccess(ctx);
+                    if (exit) {
+                        httpRequestSpan.withAttribute(
+                            "error.condition.evaluation.message",
+                            "Callout failed due to error condition evaluation: " + configuration.getErrorCondition()
+                        );
+                        return processErrorInterruption(ctx, templateEngine);
                     }
-                    httpRequestSpan.withAttribute(
-                        "error.condition.evaluation.message",
-                        "Callout failed due to error condition evaluation: " + configuration.getErrorCondition()
-                    );
-                    return processError(ctx);
+                    return Completable.complete();
                 });
         }
-        ctx.getTracer().endWithResponse(httpRequestSpan, observableHttpClientResponse);
-        return processSuccess(ctx);
+        return Completable.complete();
     }
 
-    private Completable processSuccess(BaseExecutionContext ctx) {
-        return Flowable.fromIterable(configuration.getVariables())
-            .flatMapCompletable(variable -> {
-                ctx.setAttribute(variable.getName(), null);
-                return Maybe.just(variable)
-                    .flatMap(var -> {
-                        Class<?> clazz = var.isEvaluateAsString() ? String.class : Object.class;
-                        return ctx.getTemplateEngine().eval(var.getValue(), clazz);
-                    })
-                    .doOnSuccess(value -> ctx.setAttribute(variable.getName(), value))
-                    .ignoreElement();
-            })
-            .doOnComplete(() -> ctx.getTemplateEngine().getTemplateContext().setVariable(TEMPLATE_VARIABLE, null));
+    private Completable processVariables(BaseExecutionContext ctx, TemplateEngine templateEngine) {
+        if (configuration.getVariables() != null && !configuration.getVariables().isEmpty()) {
+            return Observable.fromIterable(configuration.getVariables()).flatMapCompletable(variable -> {
+                Maybe<Object> evalMaybe;
+                if (variable.isEvaluateAsString()) {
+                    evalMaybe = templateEngine.eval(variable.getValue(), String.class).cast(Object.class);
+                } else {
+                    evalMaybe = templateEngine.eval(variable.getValue(), Object.class);
+                }
+
+                return evalMaybe
+                    .switchIfEmpty(Maybe.fromCallable(variable::getValue))
+                    .flatMapCompletable(value -> {
+                        log.info("Setting attribute {}: {}", variable.getName(), value);
+                        ctx.setAttribute(variable.getName(), value);
+                        return Completable.complete();
+                    });
+            });
+        }
+        return Completable.complete();
     }
 
-    private Completable processError(BaseExecutionContext ctx) {
+    private Completable processErrorInterruption(BaseExecutionContext ctx, TemplateEngine templateEngine) {
         return Maybe.fromSupplier(configuration::getErrorContent)
-            .flatMap(content -> ctx.getTemplateEngine().eval(content, String.class))
-            .switchIfEmpty(Single.just("Request is terminated."))
+            .flatMap(content -> templateEngine.eval(content, String.class))
+            .switchIfEmpty(
+                Maybe.fromCallable(() ->
+                    configuration.getErrorContent() != null ? configuration.getErrorContent() : "Request is terminated."
+                )
+            )
             .flatMapCompletable(errorContent -> {
                 if (ctx instanceof HttpPlainExecutionContext httpContext) {
                     return httpContext.interruptWith(
@@ -231,25 +256,23 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
      * @param ctx The context to get Vertx component
      * @return Built or existing HttpClient
      */
-    private HttpClient getHttpClient(BaseExecutionContext ctx) {
-        if (this.httpClient == null) {
-            // Vertx only uses ssl options when https
-            var options = new HttpClientOptions().setSsl(true).setTrustAll(true).setVerifyHost(false);
-
-            if (configuration.isUseSystemProxy()) {
-                Configuration config = ctx.getComponent(Configuration.class);
-                try {
-                    options.setProxyOptions(VertxProxyOptionsUtils.buildProxyOptions(config));
-                } catch (IllegalStateException e) {
-                    log.warn(
-                        "CalloutHttp requires a system proxy to be defined but some configurations are missing or not well defined: {}. Ignoring proxy",
-                        e.getMessage()
-                    );
-                }
+    private HttpClient getHttpClient(BaseExecutionContext ctx, String url) {
+        io.vertx.rxjava3.core.Vertx vertx = ctx.getComponent(io.vertx.rxjava3.core.Vertx.class);
+        if (vertx == null) {
+            io.vertx.core.Vertx coreVertx = ctx.getComponent(io.vertx.core.Vertx.class);
+            if (coreVertx != null) {
+                vertx = io.vertx.rxjava3.core.Vertx.newInstance(coreVertx);
             }
-            var vertx = ctx.getComponent(Vertx.class);
-            this.httpClient = vertx.createHttpClient(options);
         }
-        return this.httpClient;
+
+        return VertxHttpClientFactory.builder()
+            .vertx(vertx)
+            .nodeConfiguration(ctx.getComponent(Configuration.class))
+            .defaultTarget(url)
+            .httpOptions(HttpClientOptionsMapper.INSTANCE.map(configuration.getHttpClientOptions()))
+            .sslOptions(SslOptionsMapper.INSTANCE.map(configuration.getSslOptions()))
+            .proxyOptions(HttpProxyOptionsMapper.INSTANCE.map(configuration.getHttpProxyOptions()))
+            .build()
+            .createHttpClient();
     }
 }
