@@ -68,33 +68,32 @@ class CalloutHttpPolicyV4Test {
 
     @BeforeEach
     void setUp() {
-        nodeConfiguration =
-            new Configuration() {
-                @Override
-                public boolean containsProperty(String s) {
-                    return false;
-                }
+        nodeConfiguration = new Configuration() {
+            @Override
+            public boolean containsProperty(String s) {
+                return false;
+            }
 
-                @Override
-                public String getProperty(String s) {
-                    return "";
-                }
+            @Override
+            public String getProperty(String s) {
+                return "";
+            }
 
-                @Override
-                public String getProperty(String s, String s1) {
-                    return "";
-                }
+            @Override
+            public String getProperty(String s, String s1) {
+                return "";
+            }
 
-                @Override
-                public <T> T getProperty(String s, Class<T> aClass) {
-                    return null;
-                }
+            @Override
+            public <T> T getProperty(String s, Class<T> aClass) {
+                return null;
+            }
 
-                @Override
-                public <T> T getProperty(String s, Class<T> aClass, T t) {
-                    return null;
-                }
-            };
+            @Override
+            public <T> T getProperty(String s, Class<T> aClass, T t) {
+                return null;
+            }
+        };
     }
 
     @Nested
@@ -110,8 +109,7 @@ class CalloutHttpPolicyV4Test {
                 .build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .headers(
@@ -139,8 +137,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .headers(
@@ -195,8 +192,7 @@ class CalloutHttpPolicyV4Test {
                 .build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .body("{#request.headers['X-Body'][0]}")
@@ -223,8 +219,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .exitOnError(exitOnError)
@@ -257,8 +252,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .exitOnError(exitOnError)
@@ -281,8 +275,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .exitOnError(true)
@@ -309,8 +302,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .exitOnError(true)
@@ -337,8 +329,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url("http://unknown")
                     .method(HttpMethod.GET)
                     .exitOnError(true)
@@ -366,8 +357,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .fireAndForget(true)
@@ -387,7 +377,9 @@ class CalloutHttpPolicyV4Test {
                 .assertComplete();
 
             assertThat(ctx.getAttributes()).isEmpty();
-            await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> wiremock.verify(getRequestedFor(urlPathEqualTo("/"))));
+            await()
+                .atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(() -> wiremock.verify(getRequestedFor(urlPathEqualTo("/"))));
         }
 
         @Test
@@ -400,8 +392,7 @@ class CalloutHttpPolicyV4Test {
                 .build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(true))
                     .method(HttpMethod.GET)
                     .headers(
@@ -461,8 +452,7 @@ class CalloutHttpPolicyV4Test {
                 .build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .headers(
@@ -490,8 +480,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .headers(
@@ -546,8 +535,7 @@ class CalloutHttpPolicyV4Test {
                 .build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .body("{#request.headers['X-Body'][0]}")
@@ -574,8 +562,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .exitOnError(exitOnError)
@@ -604,8 +591,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .exitOnError(exitOnError)
@@ -628,8 +614,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .exitOnError(true)
@@ -656,8 +641,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .exitOnError(true)
@@ -687,8 +671,7 @@ class CalloutHttpPolicyV4Test {
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(false))
                     .method(HttpMethod.GET)
                     .fireAndForget(true)
@@ -708,7 +691,9 @@ class CalloutHttpPolicyV4Test {
                 .assertComplete();
 
             assertThat(ctx.getAttributes()).isEmpty();
-            await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> wiremock.verify(getRequestedFor(urlPathEqualTo("/"))));
+            await()
+                .atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(() -> wiremock.verify(getRequestedFor(urlPathEqualTo("/"))));
         }
 
         @Test
@@ -721,8 +706,7 @@ class CalloutHttpPolicyV4Test {
                 .build();
 
             policy(
-                CalloutHttpPolicyConfiguration
-                    .builder()
+                CalloutHttpPolicyConfiguration.builder()
                     .url(targetUrl(true))
                     .method(HttpMethod.GET)
                     .headers(
@@ -801,7 +785,9 @@ class CalloutHttpPolicyV4Test {
             ReplayProcessor<KafkaMessage> messagesEmittedToBrokerProcessor = ReplayProcessor.create();
             request.messages().doOnNext(messagesEmittedToBrokerProcessor::onNext).test().awaitDone(3, TimeUnit.SECONDS).assertComplete();
 
-            await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> wiremock.verify(recordsCount, getRequestedFor(urlPathEqualTo("/"))));
+            await()
+                .atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(() -> wiremock.verify(recordsCount, getRequestedFor(urlPathEqualTo("/"))));
         }
     }
 
@@ -837,7 +823,9 @@ class CalloutHttpPolicyV4Test {
             ReplayProcessor<KafkaMessage> messagesEmittedToBrokerProcessor = ReplayProcessor.create();
             response.messages().doOnNext(messagesEmittedToBrokerProcessor::onNext).test().awaitDone(3, TimeUnit.SECONDS).assertComplete();
 
-            await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> wiremock.verify(recordsCount, getRequestedFor(urlPathEqualTo("/"))));
+            await()
+                .atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(() -> wiremock.verify(recordsCount, getRequestedFor(urlPathEqualTo("/"))));
         }
     }
 
