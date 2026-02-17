@@ -100,7 +100,10 @@ system:
 | Exit on error<br>`exitOnError`| boolean| ✅| | Terminate the request if the error condition is true.|
 | Fire & forget<br>`fireAndForget`| boolean|  | | Make the HTTP call without expecting any response. When activating this mode, context variables and exit on error are useless.|
 | Request Headers<br>`headers`| array|  | | <br/>See "Request Headers" section.|
+| `http`| string|  | | |
 | HTTP Method<br>`method`| enum (string)| ✅| `GET`| HTTP method to invoke the endpoint.<br>Values: `GET` `POST` `PUT` `DELETE` `PATCH` `HEAD` `CONNECT` `OPTIONS` `TRACE`|
+| `proxy`| string|  | | |
+| `ssl`| string|  | | |
 | URL<br>`url`| string| ✅| | |
 | Use system proxy<br>`useSystemProxy`| boolean|  | | Use the system proxy configured by your administrator.|
 | Context variables<br>`variables`| array|  | | <br/>See "Context variables" section.|
