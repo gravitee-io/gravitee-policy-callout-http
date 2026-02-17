@@ -25,7 +25,10 @@ import io.gravitee.gateway.api.stream.BufferedReadWriteStream;
 import io.gravitee.gateway.api.stream.ReadWriteStream;
 import io.gravitee.gateway.api.stream.SimpleReadWriteStream;
 import io.gravitee.node.api.configuration.Configuration;
-import io.gravitee.node.vertx.proxy.VertxProxyOptionsUtils;
+import io.gravitee.node.vertx.client.http.VertxHttpClientFactory;
+import io.gravitee.plugin.mappers.HttpClientOptionsMapper;
+import io.gravitee.plugin.mappers.HttpProxyOptionsMapper;
+import io.gravitee.plugin.mappers.SslOptionsMapper;
 import io.gravitee.policy.api.PolicyChain;
 import io.gravitee.policy.api.PolicyResult;
 import io.gravitee.policy.api.annotations.OnRequest;
@@ -36,27 +39,20 @@ import io.gravitee.policy.callout.CalloutResponse;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
 import io.gravitee.policy.callout.configuration.PolicyScope;
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.RequestOptions;
-import java.net.URI;
 import java.util.function.Consumer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
  * @author GraviteeSource Team
  */
 public class CalloutHttpPolicyV3 {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(CalloutHttpPolicyV3.class);
 
     protected static final String HTTPS_SCHEME = "https";
 
@@ -172,8 +168,6 @@ public class CalloutHttpPolicyV3 {
     }
 
     private void doCallout(ExecutionContext context, Consumer<Void> onSuccess, Consumer<PolicyResult> onError) {
-        Vertx vertx = context.getComponent(Vertx.class);
-
         final Consumer<Void> onSuccessCallback;
         final Consumer<PolicyResult> onErrorCallback;
 
@@ -192,26 +186,17 @@ public class CalloutHttpPolicyV3 {
 
         try {
             String url = context.getTemplateEngine().evalNow(configuration.getUrl(), String.class);
-            URI target = URI.create(url);
 
-            HttpClientOptions options = new HttpClientOptions();
-            if (HTTPS_SCHEME.equalsIgnoreCase(target.getScheme())) {
-                options.setSsl(true).setTrustAll(true).setVerifyHost(false);
-            }
-
-            if (configuration.isUseSystemProxy()) {
-                Configuration configuration = context.getComponent(Configuration.class);
-                try {
-                    options.setProxyOptions(VertxProxyOptionsUtils.buildProxyOptions(configuration));
-                } catch (IllegalStateException e) {
-                    LOGGER.warn(
-                        "CalloutHttp requires a system proxy to be defined but some configurations are missing or not well defined: {}. Ignoring proxy",
-                        e.getMessage()
-                    );
-                }
-            }
-
-            HttpClient httpClient = vertx.createHttpClient(options);
+            HttpClient httpClient = VertxHttpClientFactory.builder()
+                .vertx(context.getComponent(io.vertx.rxjava3.core.Vertx.class))
+                .nodeConfiguration(context.getComponent(Configuration.class))
+                .defaultTarget(url)
+                .httpOptions(HttpClientOptionsMapper.INSTANCE.map(configuration.getHttpClientOptions()))
+                .sslOptions(SslOptionsMapper.INSTANCE.map(configuration.getSslOptions()))
+                .proxyOptions(HttpProxyOptionsMapper.INSTANCE.map(configuration.getHttpProxyOptions()))
+                .build()
+                .createHttpClient()
+                .getDelegate();
 
             RequestOptions requestOpts = new RequestOptions().setAbsoluteURI(url).setMethod(convert(configuration.getMethod()));
 
@@ -283,7 +268,8 @@ public class CalloutHttpPolicyV3 {
             httpClient.close();
 
             if (!configuration.isFireAndForget()) {
-                // Variables and exit on error are only managed if the fire & forget is disabled.
+                // Variables and exit on error are only managed if the fire & forget is
+                // disabled.
                 tplEngine.getTemplateContext().setVariable(TEMPLATE_VARIABLE, calloutResponse);
 
                 // Process callout response

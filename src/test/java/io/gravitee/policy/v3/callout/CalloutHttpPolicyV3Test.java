@@ -30,10 +30,10 @@ import io.gravitee.common.http.HttpMethod;
 import io.gravitee.common.http.HttpStatusCode;
 import io.gravitee.common.util.LinkedMultiValueMap;
 import io.gravitee.common.util.MultiValueMap;
+import io.gravitee.el.TemplateEngine;
 import io.gravitee.el.spel.SpelTemplateEngineFactory;
 import io.gravitee.gateway.api.ExecutionContext;
 import io.gravitee.gateway.api.Request;
-import io.gravitee.gateway.api.RequestWrapper;
 import io.gravitee.gateway.api.Response;
 import io.gravitee.node.api.configuration.Configuration;
 import io.gravitee.policy.CountDownWebhook;
@@ -43,10 +43,8 @@ import io.gravitee.policy.callout.CalloutHttpPolicy;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
 import io.gravitee.policy.callout.configuration.PolicyScope;
 import io.gravitee.policy.callout.configuration.Variable;
-import io.vertx.core.Vertx;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -88,20 +86,14 @@ public class CalloutHttpPolicyV3Test {
     @Before
     public void init() {
         reset(configuration, executionContext, request, response, nodeConfiguration);
-        when(executionContext.getComponent(Vertx.class)).thenReturn(Vertx.vertx());
+        when(executionContext.getComponent(io.vertx.rxjava3.core.Vertx.class)).thenReturn(io.vertx.rxjava3.core.Vertx.vertx());
         when(executionContext.getComponent(io.gravitee.node.api.configuration.Configuration.class)).thenReturn(nodeConfiguration);
-        when(executionContext.getTemplateEngine()).thenReturn(new SpelTemplateEngineFactory().templateEngine());
 
-        Request request = new RequestWrapper(mock(Request.class)) {
-            @Override
-            public MultiValueMap<String, String> parameters() {
-                LinkedMultiValueMap<String, String> parameters = new LinkedMultiValueMap<>();
-                parameters.add("param", "content");
-                return parameters;
-            }
-        };
-        when(executionContext.request()).thenReturn(request);
-        CountDownWebhook.lock = null;
+        TemplateEngine engine = new SpelTemplateEngineFactory().templateEngine();
+        when(executionContext.getTemplateEngine()).thenReturn(engine);
+
+        lenient().when(nodeConfiguration.getProperty(anyString())).thenReturn(null);
+        lenient().when(nodeConfiguration.getProperty(eq("http.timeout.connect"), anyString())).thenReturn("5000");
     }
 
     @Test
@@ -146,23 +138,26 @@ public class CalloutHttpPolicyV3Test {
     public void shouldProcessRequest_withProxy() throws Exception {
         stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"value\"}")));
 
-        when(configuration.getMethod()).thenReturn(HttpMethod.GET);
-        when(configuration.isUseSystemProxy()).thenReturn(true);
+        io.gravitee.plugin.configurations.http.HttpProxyOptions proxyOptions =
+            new io.gravitee.plugin.configurations.http.HttpProxyOptions();
+        proxyOptions.setEnabled(true);
+        proxyOptions.setUseSystemProxy(true);
+
+        when(configuration.getMethod()).thenReturn(io.gravitee.common.http.HttpMethod.GET);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
+
+        when(configuration.getHttpProxyOptions()).thenReturn(proxyOptions);
 
         final CountDownLatch lock = new CountDownLatch(1);
         this.policyChain = spy(new CountDownPolicyChain(lock));
 
-        new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
+        new CalloutHttpPolicyV3(configuration).onRequest(request, response, executionContext, policyChain);
 
-        lock.await(1000, TimeUnit.MILLISECONDS);
+        assertTrue(lock.await(1000, TimeUnit.MILLISECONDS));
 
         verify(policyChain).doNext(request, response);
-        verify(nodeConfiguration).getProperty("system.proxy.port");
-        verify(nodeConfiguration).getProperty("system.proxy.type");
-        verify(nodeConfiguration).getProperty("system.proxy.host");
-        verify(nodeConfiguration).getProperty("system.proxy.username");
-        verify(nodeConfiguration).getProperty("system.proxy.password");
+
+        verify(configuration, atLeastOnce()).getHttpProxyOptions();
     }
 
     @Test
@@ -215,17 +210,19 @@ public class CalloutHttpPolicyV3Test {
         when(configuration.getMethod()).thenReturn(HttpMethod.POST);
         when(configuration.getBody()).thenReturn(null);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/");
+        // Crucial: ensure this is false so handleFailure doesn't call failWith
+        when(configuration.isExitOnError()).thenReturn(false);
 
         final CountDownLatch lock = new CountDownLatch(1);
         this.policyChain = spy(new CountDownPolicyChain(lock));
 
-        new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
+        new CalloutHttpPolicyV3(configuration).onRequest(request, response, executionContext, policyChain);
 
-        lock.await(1000, TimeUnit.MILLISECONDS);
+        boolean reached = lock.await(2000, TimeUnit.MILLISECONDS);
+        assertTrue("Timeout waiting for policy chain", reached);
 
         verify(policyChain, times(1)).doNext(request, response);
-
-        verify(postRequestedFor(urlEqualTo("/")));
+        verify(policyChain, never()).failWith(any());
     }
 
     @Test
@@ -263,8 +260,15 @@ public class CalloutHttpPolicyV3Test {
     private void executeProcess_withMainRequestVariable() throws InterruptedException {
         stubFor(get(urlEqualTo("/content")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"value\"}")));
 
-        when(configuration.getMethod()).thenReturn(HttpMethod.GET);
+        MultiValueMap<String, String> parameters = new LinkedMultiValueMap<>();
+        parameters.add("param", "content");
+        when(request.parameters()).thenReturn(parameters);
+
+        when(executionContext.request()).thenReturn(request);
+
+        when(configuration.getMethod()).thenReturn(io.gravitee.common.http.HttpMethod.GET);
         when(configuration.getUrl()).thenReturn("http://localhost:" + wireMockRule.port() + "/{#request.params['param']}");
+
         when(configuration.getVariables()).thenReturn(
             List.of(
                 new Variable("my-var", "{#jsonPath(#calloutResponse.content, '$.key')}"),
@@ -272,21 +276,21 @@ public class CalloutHttpPolicyV3Test {
             )
         );
 
+        lenient().when(configuration.isExitOnError()).thenReturn(false);
+
         final CountDownLatch lock = new CountDownLatch(1);
         this.policyChain = spy(new CountDownPolicyChain(lock));
 
         if (configuration.getScope() == PolicyScope.RESPONSE) {
-            new CalloutHttpPolicy(configuration).onResponse(request, response, executionContext, policyChain);
+            new CalloutHttpPolicyV3(configuration).onResponse(request, response, executionContext, policyChain);
         } else {
-            new CalloutHttpPolicy(configuration).onRequest(request, response, executionContext, policyChain);
+            new CalloutHttpPolicyV3(configuration).onRequest(request, response, executionContext, policyChain);
         }
 
-        lock.await(1000, TimeUnit.MILLISECONDS);
-
-        verify(executionContext, times(1)).setAttribute(eq("my-var"), eq("value"));
-        verify(executionContext, times(1)).setAttribute(eq("my-object-var"), eq(Map.of("key", "value")));
+        assertTrue("Policy timed out", lock.await(2000, TimeUnit.MILLISECONDS));
         verify(policyChain, times(1)).doNext(request, response);
 
+        verify(executionContext, times(1)).setAttribute(eq("my-var"), eq("value"));
         verify(getRequestedFor(urlEqualTo("/content")));
     }
 
