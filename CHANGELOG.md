@@ -1,3 +1,10 @@
+# [5.4.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/5.3.0...5.4.0) (2026-02-18)
+
+
+### Features
+
+* enable A2A proxy ([05b1af8](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/05b1af8ec37c37800bd7ecee68aee810b44f417d))
+
 # [5.3.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/5.2.0...5.3.0) (2026-02-10)
 
 
