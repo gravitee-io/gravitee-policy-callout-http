@@ -46,16 +46,14 @@ import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.RequestOptions;
 import java.util.function.Consumer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.CustomLog;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
  * @author GraviteeSource Team
  */
+@CustomLog
 public class CalloutHttpPolicyV3 {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(CalloutHttpPolicyV3.class);
 
     protected static final String HTTPS_SCHEME = "https";
 
@@ -182,7 +180,7 @@ public class CalloutHttpPolicyV3 {
                 try {
                     options.setProxyOptions(VertxProxyOptionsUtils.buildProxyOptions(config));
                 } catch (IllegalStateException e) {
-                    LOGGER.warn(
+                    log.warn(
                         "CalloutHttp requires a system proxy to be defined but some configurations are missing or not well defined: {}. Ignoring proxy",
                         e.getMessage()
                     );
