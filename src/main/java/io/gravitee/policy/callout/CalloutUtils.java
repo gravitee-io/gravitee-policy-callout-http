@@ -23,15 +23,15 @@ import io.gravitee.policy.callout.configuration.HttpHeader;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Single;
 import java.util.Optional;
+import lombok.CustomLog;
 import lombok.experimental.UtilityClass;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * @author Anthony CALLAERT (anthony.callaert at graviteesource.com)
  * @author GraviteeSource Team
  */
 @UtilityClass
-@Slf4j
+@CustomLog
 public class CalloutUtils {
 
     Single<CalloutHttpPolicy.Req> prepareCalloutRequest(TemplateEngine templateEngine, CalloutHttpPolicyConfiguration configuration) {

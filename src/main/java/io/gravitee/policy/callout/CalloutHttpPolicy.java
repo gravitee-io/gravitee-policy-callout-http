@@ -44,13 +44,13 @@ import io.vertx.rxjava3.core.buffer.Buffer;
 import io.vertx.rxjava3.core.http.HttpClient;
 import java.util.List;
 import java.util.Optional;
-import lombok.extern.slf4j.Slf4j;
+import lombok.CustomLog;
 
 /**
  * @author David BRASSELY (david.brassely at graviteesource.com)
  * @author GraviteeSource Team
  */
-@Slf4j
+@CustomLog
 public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy, KafkaPolicy {
 
     private volatile HttpClient httpClient;
@@ -138,7 +138,7 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
                 ctx.getTracer().endOnError(httpRequestSpan, th);
 
                 if (th instanceof CalloutException && configuration.isExitOnError()) {
-                    log.error(th.getCause().getMessage(), th.getCause());
+                    ctx.withLogger(log).error(th.getCause().getMessage(), th.getCause());
                     if (ctx instanceof HttpPlainExecutionContext httpContext) {
                         return httpContext.interruptWith(
                             new ExecutionFailure(configuration.getErrorStatusCode())
@@ -217,7 +217,7 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
                         new ExecutionFailure(configuration.getErrorStatusCode()).key(CALLOUT_EXIT_ON_ERROR).message(errorContent)
                     );
                 } else if (ctx instanceof KafkaMessageExecutionContext kafkaContext) {
-                    log.warn("Callout policy is interrupting Kafka message processing. Error content: {}", errorContent);
+                    ctx.withLogger(log).warn("Callout policy is interrupting Kafka message processing. Error content: {}", errorContent);
                     return kafkaContext.executionContext().interruptWith(org.apache.kafka.common.protocol.Errors.UNKNOWN_SERVER_ERROR);
                 }
                 return Completable.error(new IllegalStateException("Unsupported execution context : " + ctx.getClass().getName()));
@@ -241,10 +241,12 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
                 try {
                     options.setProxyOptions(VertxProxyOptionsUtils.buildProxyOptions(config));
                 } catch (IllegalStateException e) {
-                    log.warn(
-                        "CalloutHttp requires a system proxy to be defined but some configurations are missing or not well defined: {}. Ignoring proxy",
-                        e.getMessage()
-                    );
+                    ctx
+                        .withLogger(log)
+                        .warn(
+                            "CalloutHttp requires a system proxy to be defined but some configurations are missing or not well defined: {}. Ignoring proxy",
+                            e.getMessage()
+                        );
                 }
             }
             var vertx = ctx.getComponent(Vertx.class);

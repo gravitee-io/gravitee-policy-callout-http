@@ -37,6 +37,7 @@ import io.gravitee.gateway.reactive.api.context.kafka.KafkaMessageExecutionConte
 import io.gravitee.gateway.reactive.api.message.kafka.KafkaMessage;
 import io.gravitee.gateway.reactive.api.tracing.Tracer;
 import io.gravitee.gateway.reactive.core.context.interruption.InterruptionFailureException;
+import io.gravitee.node.api.Node;
 import io.gravitee.node.api.configuration.Configuration;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
 import io.gravitee.policy.callout.configuration.Variable;
@@ -47,6 +48,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -300,7 +302,11 @@ class CalloutHttpPolicyV4Test {
 
         @Test
         void should_interrupt_when_fail_to_call_target_callout() {
-            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Node.class, mock(Node.class))
+                .withComponent(Vertx.class, Vertx.vertx())
+                .request(aRequest().build())
+                .build();
 
             policy(
                 CalloutHttpPolicyConfiguration.builder()
