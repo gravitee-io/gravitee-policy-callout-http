@@ -44,4 +44,12 @@ public class KafkaMessageRequestStub implements KafkaMessageRequest {
         this.transformer = transformer;
         return Completable.complete();
     }
+
+    @Override
+    public String compression() {
+        return "";
+    }
+
+    @Override
+    public void compression(String compressionType) {}
 }
