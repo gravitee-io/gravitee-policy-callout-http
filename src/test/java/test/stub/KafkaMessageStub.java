@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class KafkaMessageStub implements KafkaMessage {
 
     private final Map<String, Buffer> recordHeaders = new ConcurrentHashMap<>();
+    private Buffer key;
     private Buffer content;
 
     public KafkaMessageStub(String content) {
@@ -55,7 +56,19 @@ public class KafkaMessageStub implements KafkaMessage {
 
     @Override
     public Buffer key() {
-        return null;
+        return key;
+    }
+
+    @Override
+    public KafkaMessage key(Buffer buffer) {
+        this.key = buffer;
+        return this;
+    }
+
+    @Override
+    public KafkaMessage key(String s) {
+        this.key = Buffer.buffer(s);
+        return this;
     }
 
     @Override
@@ -76,6 +89,11 @@ public class KafkaMessageStub implements KafkaMessage {
     @Override
     public String topic() {
         return "";
+    }
+
+    @Override
+    public int sizeInBytes() {
+        return 0;
     }
 
     @Override
