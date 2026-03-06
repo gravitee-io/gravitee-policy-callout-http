@@ -144,6 +144,7 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
                             new ExecutionFailure(configuration.getErrorStatusCode())
                                 .key(CALLOUT_HTTP_ERROR)
                                 .message(th.getCause().getMessage())
+                                .cause(th)
                         );
                     } else if (ctx instanceof KafkaMessageExecutionContext kafkaContext) {
                         return kafkaContext.executionContext().interruptWith(org.apache.kafka.common.protocol.Errors.UNKNOWN_SERVER_ERROR);
