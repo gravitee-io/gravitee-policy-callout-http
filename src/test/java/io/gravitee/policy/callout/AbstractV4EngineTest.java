@@ -47,13 +47,20 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 public class AbstractV4EngineTest extends AbstractPolicyTest<CalloutHttpPolicy, CalloutHttpPolicyConfiguration> {
 
     private static final String CALLOUT_TEMPLATE_URL = "CALLOUT_URL";
+    private static final String CALLOUT_HTTPS_TEMPLATE_URL = "CALLOUT_HTTPS_URL";
 
     @RegisterExtension
     static WireMockExtension calloutServer = WireMockExtension.newInstance().options(wireMockConfig().dynamicPort()).build();
 
+    @RegisterExtension
+    static WireMockExtension calloutHttpsServer = WireMockExtension.newInstance()
+        .options(wireMockConfig().dynamicPort().dynamicHttpsPort())
+        .build();
+
     @BeforeEach
     public void cleanStub() {
         calloutServer.resetAll();
+        calloutHttpsServer.resetAll();
     }
 
     @Override
@@ -91,7 +98,12 @@ public class AbstractV4EngineTest extends AbstractPolicyTest<CalloutHttpPolicy, 
                     Stream.concat(flow.getRequest().stream(), flow.getResponse().stream())
                         .filter(step -> policyName().equals(step.getPolicy()))
                         .forEach(step ->
-                            step.setConfiguration(step.getConfiguration().replace(CALLOUT_TEMPLATE_URL, calloutServer.baseUrl()))
+                            step.setConfiguration(
+                                step
+                                    .getConfiguration()
+                                    .replace(CALLOUT_HTTPS_TEMPLATE_URL, "https://localhost:" + calloutHttpsServer.getHttpsPort())
+                                    .replace(CALLOUT_TEMPLATE_URL, calloutServer.baseUrl())
+                            )
                         )
                 );
         }

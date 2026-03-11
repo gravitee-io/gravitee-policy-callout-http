@@ -75,6 +75,34 @@ class CalloutHttpPolicyV4IntegrationTest {
             calloutServer.verify(getRequestedFor(urlPathEqualTo("/callout")));
         }
 
+        @Test
+        @DeployApi("/apis/v4/proxy/request-callout-https.json")
+        void should_do_callout_over_https(HttpClient client) {
+            wiremock.stubFor(get("/endpoint").willReturn(ok("response from backend")));
+            calloutHttpsServer.stubFor(get("/callout").willReturn(ok("response from https callout")));
+
+            var obs = client
+                .rxRequest(HttpMethod.GET, "/proxy-request-callout-https")
+                .flatMap(HttpClientRequest::rxSend)
+                .flatMapPublisher(response -> {
+                    assertThat(response.statusCode()).isEqualTo(200);
+                    return response.toFlowable();
+                })
+                .test();
+
+            obs
+                .awaitDone(5, TimeUnit.SECONDS)
+                .assertComplete()
+                .assertValue(response -> {
+                    assertThat(response).hasToString("new content: response from https callout");
+                    return true;
+                })
+                .assertNoErrors();
+
+            wiremock.verify(getRequestedFor(urlPathEqualTo("/endpoint")));
+            calloutHttpsServer.verify(getRequestedFor(urlPathEqualTo("/callout")));
+        }
+
         @ParameterizedTest
         @DeployApi(
             { "/apis/v4/proxy/request-callout-http-fire-and-forget.json", "/apis/v4/proxy/response-callout-http-fire-and-forget.json" }
