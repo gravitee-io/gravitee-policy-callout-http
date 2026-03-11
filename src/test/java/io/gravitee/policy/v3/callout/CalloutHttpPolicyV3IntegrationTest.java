@@ -59,9 +59,15 @@ class CalloutHttpPolicyV3IntegrationTest extends AbstractPolicyTest<CalloutHttpP
 
     public static final String LOCALHOST = "localhost:";
     public static final String CALLOUT_BASE_URL = LOCALHOST + "8089";
+    public static final String CALLOUT_HTTPS_BASE_URL = LOCALHOST + "8090";
 
     @RegisterExtension
     static WireMockExtension calloutServer = WireMockExtension.newInstance().options(wireMockConfig().dynamicPort()).build();
+
+    @RegisterExtension
+    static WireMockExtension calloutHttpsServer = WireMockExtension.newInstance()
+        .options(wireMockConfig().dynamicPort().dynamicHttpsPort())
+        .build();
 
     /**
      * Override Callout policy URL to use the dynamic port from {@link CalloutHttpPolicyV3IntegrationTest#calloutServer}
@@ -77,7 +83,12 @@ class CalloutHttpPolicyV3IntegrationTest extends AbstractPolicyTest<CalloutHttpP
                     .stream()
                     .filter(step -> policyName().equals(step.getPolicy()))
                     .forEach(step ->
-                        step.setConfiguration(step.getConfiguration().replace(CALLOUT_BASE_URL, LOCALHOST + calloutServer.getPort()))
+                        step.setConfiguration(
+                            step
+                                .getConfiguration()
+                                .replace(CALLOUT_HTTPS_BASE_URL, LOCALHOST + calloutHttpsServer.getHttpsPort())
+                                .replace(CALLOUT_BASE_URL, LOCALHOST + calloutServer.getPort())
+                        )
                     )
             );
     }
@@ -114,6 +125,35 @@ class CalloutHttpPolicyV3IntegrationTest extends AbstractPolicyTest<CalloutHttpP
 
         wiremock.verify(getRequestedFor(urlPathEqualTo("/endpoint")));
         calloutServer.verify(getRequestedFor(urlPathEqualTo("/callout")).withHeader("X-Callout", equalTo("calloutHeader")));
+    }
+
+    @Test
+    @DisplayName("Should do callout over HTTPS and set response as attribute")
+    @DeployApi("/apis/v3/callout-https.json")
+    void should_do_callout_over_https(HttpClient client) {
+        wiremock.stubFor(get("/endpoint").willReturn(ok("response from backend")));
+        calloutHttpsServer.stubFor(get("/callout").willReturn(ok("response from https callout")));
+
+        var obs = client
+            .rxRequest(HttpMethod.GET, "/test-https")
+            .flatMap(HttpClientRequest::rxSend)
+            .flatMapPublisher(response -> {
+                assertThat(response.statusCode()).isEqualTo(200);
+                return response.toFlowable();
+            })
+            .test();
+
+        obs
+            .awaitDone(30, TimeUnit.SECONDS)
+            .assertComplete()
+            .assertValue(response -> {
+                assertThat(response).hasToString("response from https callout");
+                return true;
+            })
+            .assertNoErrors();
+
+        wiremock.verify(getRequestedFor(urlPathEqualTo("/endpoint")));
+        calloutHttpsServer.verify(getRequestedFor(urlPathEqualTo("/callout")));
     }
 
     @Test
