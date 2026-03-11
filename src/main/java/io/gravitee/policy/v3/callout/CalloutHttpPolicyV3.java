@@ -273,65 +273,68 @@ public class CalloutHttpPolicyV3 {
         HttpClient httpClient,
         HttpClientResponse httpResponse
     ) {
-        httpResponse.bodyHandler(body -> {
-            TemplateEngine tplEngine = context.getTemplateEngine();
+        httpResponse
+            .body()
+            .onSuccess(body -> {
+                TemplateEngine tplEngine = context.getTemplateEngine();
 
-            // Put response into template variable for EL
-            final CalloutResponse calloutResponse = new CalloutResponse(httpResponse, body.toString());
+                // Put response into template variable for EL
+                final CalloutResponse calloutResponse = new CalloutResponse(httpResponse, body.toString());
 
-            // Close HTTP client
-            httpClient.close();
+                // Close HTTP client
+                httpClient.close();
 
-            if (!configuration.isFireAndForget()) {
-                // Variables and exit on error are only managed if the fire & forget is disabled.
-                tplEngine.getTemplateContext().setVariable(TEMPLATE_VARIABLE, calloutResponse);
+                if (!configuration.isFireAndForget()) {
+                    // Variables and exit on error are only managed if the fire & forget is disabled.
+                    tplEngine.getTemplateContext().setVariable(TEMPLATE_VARIABLE, calloutResponse);
 
-                // Process callout response
-                boolean exit = false;
+                    // Process callout response
+                    boolean exit = false;
 
-                if (configuration.isExitOnError()) {
-                    exit = tplEngine.evalNow(configuration.getErrorCondition(), Boolean.class);
-                }
+                    if (configuration.isExitOnError()) {
+                        exit = tplEngine.evalNow(configuration.getErrorCondition(), Boolean.class);
+                    }
 
-                if (!exit) {
-                    // Set context variables
-                    if (configuration.getVariables() != null) {
-                        configuration
-                            .getVariables()
-                            .forEach(variable -> {
-                                try {
-                                    if (variable.getValue() != null) {
-                                        Class<?> clazz = variable.isEvaluateAsString() ? String.class : Object.class;
-                                        context.setAttribute(variable.getName(), tplEngine.evalNow(variable.getValue(), clazz));
-                                    } else {
-                                        context.setAttribute(variable.getName(), null);
+                    if (!exit) {
+                        // Set context variables
+                        if (configuration.getVariables() != null) {
+                            configuration
+                                .getVariables()
+                                .forEach(variable -> {
+                                    try {
+                                        if (variable.getValue() != null) {
+                                            Class<?> clazz = variable.isEvaluateAsString() ? String.class : Object.class;
+                                            context.setAttribute(variable.getName(), tplEngine.evalNow(variable.getValue(), clazz));
+                                        } else {
+                                            context.setAttribute(variable.getName(), null);
+                                        }
+                                    } catch (Throwable ex) {
+                                        // Do nothing
                                     }
-                                } catch (Throwable ex) {
-                                    // Do nothing
-                                }
-                            });
+                                });
+                        }
+
+                        tplEngine.getTemplateContext().setVariable(TEMPLATE_VARIABLE, null);
+
+                        // Finally continue chaining
+                        onSuccess.accept(null);
+                    } else {
+                        String errorContent = configuration.getErrorContent();
+                        try {
+                            errorContent = tplEngine.evalNow(configuration.getErrorContent(), String.class);
+                        } catch (Exception ex) {
+                            // Do nothing
+                        }
+
+                        if (errorContent == null || errorContent.isEmpty()) {
+                            errorContent = "Request is terminated.";
+                        }
+
+                        onError.accept(PolicyResult.failure(CALLOUT_EXIT_ON_ERROR, configuration.getErrorStatusCode(), errorContent));
                     }
-
-                    tplEngine.getTemplateContext().setVariable(TEMPLATE_VARIABLE, null);
-
-                    // Finally continue chaining
-                    onSuccess.accept(null);
-                } else {
-                    String errorContent = configuration.getErrorContent();
-                    try {
-                        errorContent = tplEngine.evalNow(configuration.getErrorContent(), String.class);
-                    } catch (Exception ex) {
-                        // Do nothing
-                    }
-
-                    if (errorContent == null || errorContent.isEmpty()) {
-                        errorContent = "Request is terminated.";
-                    }
-
-                    onError.accept(PolicyResult.failure(CALLOUT_EXIT_ON_ERROR, configuration.getErrorStatusCode(), errorContent));
                 }
-            }
-        });
+            })
+            .onFailure(throwable -> handleFailure(onSuccess, onError, httpClient, throwable));
     }
 
     private void handleFailure(Consumer<Void> onSuccess, Consumer<PolicyResult> onError, HttpClient httpClient, Throwable throwable) {

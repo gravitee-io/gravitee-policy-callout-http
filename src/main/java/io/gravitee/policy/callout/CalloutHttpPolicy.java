@@ -35,13 +35,13 @@ import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.core.Maybe;
 import io.reactivex.rxjava3.core.Single;
+import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.RequestOptions;
-import io.vertx.rxjava3.core.Vertx;
-import io.vertx.rxjava3.core.buffer.Buffer;
-import io.vertx.rxjava3.core.http.HttpClient;
 import java.util.List;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -104,10 +104,9 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
         var requestOpts = new RequestOptions().setAbsoluteURI(reqConfig.url).setMethod(convert(configuration.getMethod()));
         ObservableHttpClientRequest observableHttpClientRequest = new ObservableHttpClientRequest(requestOpts);
         Span httpRequestSpan = ctx.getTracer().startSpanFrom(observableHttpClientRequest);
-        return httpClient
-            .rxRequest(requestOpts)
+        return Single.fromCompletionStage(httpClient.request(requestOpts).toCompletionStage())
             .flatMap(req -> {
-                observableHttpClientRequest.httpClientRequest(req.getDelegate());
+                observableHttpClientRequest.httpClientRequest(req);
                 ctx.getTracer().injectSpanContext(req::putHeader);
                 if (reqConfig.headerList() != null) {
                     reqConfig
@@ -121,17 +120,16 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
                     req.headers().remove(HttpHeaders.TRANSFER_ENCODING);
                     // Removing Content-Length header to let VertX automatically set it correctly
                     req.headers().remove(HttpHeaders.CONTENT_LENGTH);
-                    return req.rxSend(Buffer.buffer(reqConfig.body().get()));
+                    return Single.fromCompletionStage(req.send(Buffer.buffer(reqConfig.body().get())).toCompletionStage());
                 }
 
-                return req.send();
+                return Single.fromCompletionStage(req.send().toCompletionStage());
             })
             .onErrorResumeNext(throwable -> Single.error(new CalloutException(throwable)))
             .flatMap(httpClientResponse ->
-                httpClientResponse
-                    .body()
-                    .map(responseBody -> new CalloutResponse(httpClientResponse.getDelegate(), responseBody.toString()))
-                    .map(calloutResponse -> new CalloutResponseWithDelegate(calloutResponse, httpClientResponse.getDelegate()))
+                Single.fromCompletionStage(httpClientResponse.body().toCompletionStage())
+                    .map(responseBody -> new CalloutResponse(httpClientResponse, responseBody.toString()))
+                    .map(calloutResponse -> new CalloutResponseWithDelegate(calloutResponse, httpClientResponse))
             )
             .flatMapCompletable(calloutResponseWithDelegate -> processCalloutResponse(ctx, calloutResponseWithDelegate, httpRequestSpan))
             .onErrorResumeNext(th -> {
