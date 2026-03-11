@@ -44,7 +44,7 @@
                     "policy": "policy-http-callout",
                     "configuration": {
                         "method": "GET",
-                        "url": "CALLOUT_URL/callout",
+                        "url": "${CALLOUT_URL}/callout",
                         "variables": [
                             {
                                 "name": "newContent",

@@ -32,7 +32,7 @@
                     "policy": "policy-http-callout",
                     "configuration": {
                         "method": "POST",
-                        "url": "http://localhost:8089/callout",
+                        "url": "${CALLOUT_URL}/callout",
                         "scope": "REQUEST_CONTENT",
                         "body": "{#request.content}"
                     }

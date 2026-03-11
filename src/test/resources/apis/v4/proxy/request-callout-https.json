@@ -1,5 +1,5 @@
 {
-    "id": "proxy-response-el-support",
+    "id": "proxy-request-callout-https",
     "name": "my-api",
     "gravitee": "4.0.0",
     "type": "proxy",
@@ -8,7 +8,7 @@
             "type": "http",
             "paths": [
                 {
-                    "path": "/proxy-response-el-support"
+                    "path": "/proxy-request-callout-https"
                 }
             ],
             "entrypoints": [{ "type": "http-proxy" }]
@@ -36,38 +36,32 @@
                 "path": "/",
                 "operator": "STARTS_WITH"
             },
-            "request": [],
-            "response": [
+            "request": [
                 {
-                    "name": "Callout HTTP",
+                    "name": "Callout HTTPS",
                     "description": "",
                     "enabled": true,
                     "policy": "policy-http-callout",
                     "configuration": {
-                        "method": "POST",
-                        "url": "${CALLOUT_URL}{#request.headers['X-Url'][0]}",
-                        "headers": [
+                        "method": "GET",
+                        "url": "${CALLOUT_HTTPS_URL}/callout",
+                        "variables": [
                             {
-                                "name": "X-Callout1",
-                                "value": "{#request.headers['X-Header1'][0]}"
-                            },
-                            {
-                                "name": "X-Callout2",
-                                "value": "{#request.headers['X-Header2'][0]}"
+                                "name": "newContent",
+                                "value": "{#jsonPath(#calloutResponse.content, '$')}"
                             }
-                        ],
-                        "body": "{#request.headers['X-Body'][0]}",
-                        "fireAndForget": false
+                        ]
                     }
-                },
+                }
+            ],
+            "response": [
                 {
                     "name": "Assign content",
                     "description": "",
                     "enabled": true,
                     "policy": "assign-content",
                     "configuration": {
-                        "scope": "RESPONSE",
-                        "body": "new content"
+                        "body": "new content: {#context.attributes['newContent']}"
                     }
                 }
             ]
