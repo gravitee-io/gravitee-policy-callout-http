@@ -234,24 +234,30 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
      */
     private HttpClient getHttpClient(BaseExecutionContext ctx) {
         if (this.httpClient == null) {
-            // Vertx only uses ssl options when https
-            var options = new HttpClientOptions().setSsl(true).setTrustAll(true).setVerifyHost(false);
+            synchronized (this) {
+                if (this.httpClient == null) {
+                    // SSL options (trustAll, verifyHost) are set at client level but only applied per-request
+                    // when the URL scheme is HTTPS. Vertx's RequestOptions.setAbsoluteURI() overrides the client
+                    // SSL setting based on the actual URL scheme, so HTTP requests are not affected.
+                    var options = new HttpClientOptions().setSsl(true).setTrustAll(true).setVerifyHost(false);
 
-            if (configuration.isUseSystemProxy()) {
-                Configuration config = ctx.getComponent(Configuration.class);
-                try {
-                    options.setProxyOptions(VertxProxyOptionsUtils.buildProxyOptions(config));
-                } catch (IllegalStateException e) {
-                    ctx
-                        .withLogger(log)
-                        .warn(
-                            "CalloutHttp requires a system proxy to be defined but some configurations are missing or not well defined: {}. Ignoring proxy",
-                            e.getMessage()
-                        );
+                    if (configuration.isUseSystemProxy()) {
+                        Configuration config = ctx.getComponent(Configuration.class);
+                        try {
+                            options.setProxyOptions(VertxProxyOptionsUtils.buildProxyOptions(config));
+                        } catch (IllegalStateException e) {
+                            ctx
+                                .withLogger(log)
+                                .warn(
+                                    "CalloutHttp requires a system proxy to be defined but some configurations are missing or not well defined: {}. Ignoring proxy",
+                                    e.getMessage()
+                                );
+                        }
+                    }
+                    var vertx = ctx.getComponent(Vertx.class);
+                    this.httpClient = vertx.createHttpClient(options);
                 }
             }
-            var vertx = ctx.getComponent(Vertx.class);
-            this.httpClient = vertx.createHttpClient(options);
         }
         return this.httpClient;
     }
