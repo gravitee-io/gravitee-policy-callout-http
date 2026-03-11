@@ -44,7 +44,7 @@
                     "policy": "policy-http-callout",
                     "configuration": {
                         "method": "POST",
-                        "url": "CALLOUT_URL{#request.headers['X-Url'][0]}",
+                        "url": "${CALLOUT_URL}{#request.headers['X-Url'][0]}",
                         "headers": [
                             {
                                 "name": "X-Callout1",

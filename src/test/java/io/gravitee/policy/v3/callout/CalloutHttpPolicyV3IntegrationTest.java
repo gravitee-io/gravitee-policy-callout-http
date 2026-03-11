@@ -33,7 +33,6 @@ import io.gravitee.apim.gateway.tests.sdk.annotations.DeployApi;
 import io.gravitee.apim.gateway.tests.sdk.annotations.GatewayTest;
 import io.gravitee.apim.gateway.tests.sdk.policy.PolicyBuilder;
 import io.gravitee.common.http.HttpStatusCode;
-import io.gravitee.definition.model.Api;
 import io.gravitee.definition.model.ExecutionMode;
 import io.gravitee.plugin.policy.PolicyPlugin;
 import io.gravitee.policy.callout.CalloutHttpPolicy;
@@ -57,10 +56,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 @GatewayTest(v2ExecutionMode = ExecutionMode.V3)
 class CalloutHttpPolicyV3IntegrationTest extends AbstractPolicyTest<CalloutHttpPolicy, CalloutHttpPolicyConfiguration> {
 
-    public static final String LOCALHOST = "localhost:";
-    public static final String CALLOUT_BASE_URL = LOCALHOST + "8089";
-    public static final String CALLOUT_HTTPS_BASE_URL = LOCALHOST + "8090";
-
     @RegisterExtension
     static WireMockExtension calloutServer = WireMockExtension.newInstance().options(wireMockConfig().dynamicPort()).build();
 
@@ -69,28 +64,10 @@ class CalloutHttpPolicyV3IntegrationTest extends AbstractPolicyTest<CalloutHttpP
         .options(wireMockConfig().dynamicPort().dynamicHttpsPort())
         .build();
 
-    /**
-     * Override Callout policy URL to use the dynamic port from {@link CalloutHttpPolicyV3IntegrationTest#calloutServer}
-     * @param api is the api to apply this function code
-     */
     @Override
-    public void configureApi(Api api) {
-        api
-            .getFlows()
-            .forEach(flow ->
-                flow
-                    .getPre()
-                    .stream()
-                    .filter(step -> policyName().equals(step.getPolicy()))
-                    .forEach(step ->
-                        step.setConfiguration(
-                            step
-                                .getConfiguration()
-                                .replace(CALLOUT_HTTPS_BASE_URL, LOCALHOST + calloutHttpsServer.getHttpsPort())
-                                .replace(CALLOUT_BASE_URL, LOCALHOST + calloutServer.getPort())
-                        )
-                    )
-            );
+    public void configurePlaceHolderVariables(Map<String, String> variables) {
+        variables.put("CALLOUT_URL", calloutServer.baseUrl());
+        variables.put("CALLOUT_HTTPS_URL", "https://localhost:" + calloutHttpsServer.getHttpsPort());
     }
 
     @Override
