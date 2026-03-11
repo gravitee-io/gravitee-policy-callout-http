@@ -44,7 +44,7 @@
                     "policy": "policy-http-callout",
                     "configuration": {
                         "method": "GET",
-                        "url": "CALLOUT_URL/callout",
+                        "url": "${CALLOUT_URL}/callout",
                         "exitOnError": true,
                         "errorCondition": "{#calloutResponse.status >= 400 and #calloutResponse.status <= 599}",
                         "errorStatusCode": "501",

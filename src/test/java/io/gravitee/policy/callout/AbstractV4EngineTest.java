@@ -27,9 +27,7 @@ import io.gravitee.apim.gateway.tests.sdk.connector.EntrypointBuilder;
 import io.gravitee.apim.gateway.tests.sdk.policy.PolicyBuilder;
 import io.gravitee.apim.gateway.tests.sdk.reactor.ReactorBuilder;
 import io.gravitee.apim.plugin.reactor.ReactorPlugin;
-import io.gravitee.definition.model.v4.Api;
 import io.gravitee.gateway.reactive.reactor.v4.reactor.ReactorFactory;
-import io.gravitee.gateway.reactor.ReactableApi;
 import io.gravitee.plugin.endpoint.EndpointConnectorPlugin;
 import io.gravitee.plugin.endpoint.http.proxy.HttpProxyEndpointConnectorFactory;
 import io.gravitee.plugin.endpoint.mock.MockEndpointConnectorFactory;
@@ -39,15 +37,11 @@ import io.gravitee.plugin.policy.PolicyPlugin;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 @GatewayTest
 public class AbstractV4EngineTest extends AbstractPolicyTest<CalloutHttpPolicy, CalloutHttpPolicyConfiguration> {
-
-    private static final String CALLOUT_TEMPLATE_URL = "CALLOUT_URL";
-    private static final String CALLOUT_HTTPS_TEMPLATE_URL = "CALLOUT_HTTPS_URL";
 
     @RegisterExtension
     static WireMockExtension calloutServer = WireMockExtension.newInstance().options(wireMockConfig().dynamicPort()).build();
@@ -89,23 +83,8 @@ public class AbstractV4EngineTest extends AbstractPolicyTest<CalloutHttpPolicy, 
     }
 
     @Override
-    public void configureApi(ReactableApi<?> api, Class<?> definitionClass) {
-        if (definitionClass.isAssignableFrom(Api.class)) {
-            Api apiDefinition = (Api) api.getDefinition();
-            apiDefinition
-                .getFlows()
-                .forEach(flow ->
-                    Stream.concat(flow.getRequest().stream(), flow.getResponse().stream())
-                        .filter(step -> policyName().equals(step.getPolicy()))
-                        .forEach(step ->
-                            step.setConfiguration(
-                                step
-                                    .getConfiguration()
-                                    .replace(CALLOUT_HTTPS_TEMPLATE_URL, "https://localhost:" + calloutHttpsServer.getHttpsPort())
-                                    .replace(CALLOUT_TEMPLATE_URL, calloutServer.baseUrl())
-                            )
-                        )
-                );
-        }
+    public void configurePlaceHolderVariables(Map<String, String> variables) {
+        variables.put("CALLOUT_URL", calloutServer.baseUrl());
+        variables.put("CALLOUT_HTTPS_URL", "https://localhost:" + calloutHttpsServer.getHttpsPort());
     }
 }
