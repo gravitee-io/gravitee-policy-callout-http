@@ -1,3 +1,22 @@
+# [6.0.0-beta.1](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/5.4.0...6.0.0-beta.1) (2026-03-12)
+
+
+### Bug Fixes
+
+* update apim version, clean pom and fix unit tests ([54aa231](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/54aa23125caad4318073c65e5b0a238d749cca15))
+* update gravitee orb ([031d831](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/031d8318712327da3b8b826f91040b4b916d0676))
+* update gravitee-parent and orb ([8e97b22](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/8e97b2220ce0f4fa8ea0136ec1ea0be4c2561f49))
+
+
+### Features
+
+* upgrade to vertx 5 ([50ede74](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/50ede747323edeaa1d3586597456aaef792947e2))
+
+
+### BREAKING CHANGES
+
+* upgrade to vertx 5.x
+
 # [5.4.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/5.3.0...5.4.0) (2026-02-18)
 
 
