@@ -22,6 +22,7 @@ import io.gravitee.gateway.core.component.ComponentProvider;
 import io.gravitee.gateway.reactive.core.context.DefaultExecutionContext;
 import io.gravitee.gateway.reactive.core.context.MutableRequest;
 import io.gravitee.gateway.reactive.core.context.MutableResponse;
+import io.gravitee.reporter.api.v4.metric.Metrics;
 
 public class ExecutionContextBuilder {
 
@@ -42,6 +43,6 @@ public class ExecutionContextBuilder {
     }
 
     public DefaultExecutionContext build() {
-        return new DefaultExecutionContext(request, response).componentProvider(componentProvider);
+        return new DefaultExecutionContext(request, response).componentProvider(componentProvider).metrics(Metrics.builder().build());
     }
 }
