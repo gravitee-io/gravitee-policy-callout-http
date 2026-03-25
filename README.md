@@ -212,6 +212,31 @@ spec:
 
 ## Changelog
 
+### [6.0.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/5.4.0...6.0.0) (2026-03-25)
+
+
+##### Bug Fixes
+
+* rework http client creation ([aafb92a](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/aafb92ad721b3b74d90e27c2559b1fb21d573cc5))
+* update KafkaMessageStub implementation ([08d892e](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/08d892e994efdd5f11f7c0707107334e0d026712))
+
+
+##### chore
+
+* bump dependencies ([70c98a6](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/70c98a68c604234ba43f334a1a24fd5607f56c5c))
+
+
+##### Features
+
+* improve v3 performance by using one http client only ([b4a42cf](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/b4a42cffa3c7db0cf7e550abab0461cee8b0fe97))
+* propagate failure cause ([19ef61e](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/19ef61eba52f3126f5c271cd3481ee86e0e27a97))
+* use new logging ([7258910](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/72589105f1b579c8386c06628f7f1b81681657c6))
+
+
+##### BREAKING CHANGES
+
+* bump gravitee-parent
+
 ### [5.4.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/5.3.0...5.4.0) (2026-02-18)
 
 
