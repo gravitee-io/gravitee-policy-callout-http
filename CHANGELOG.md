@@ -1,3 +1,15 @@
+# [7.0.0-alpha.1](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/6.0.0...7.0.0-alpha.1) (2026-03-31)
+
+
+### Features
+
+* upgrade to vertx 5 ([16fc335](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/16fc3356cee0085f9029acdb7fb934999b9e6bf3))
+
+
+### BREAKING CHANGES
+
+* upgrade to vertx 5.x
+
 # [6.0.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/5.4.0...6.0.0) (2026-03-25)
 
 
