@@ -44,6 +44,7 @@ import io.gravitee.policy.callout.configuration.HttpClientOptions;
 import io.gravitee.policy.callout.configuration.Variable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.processors.ReplayProcessor;
+import io.vertx.core.http.PoolOptions;
 import io.vertx.rxjava3.core.Vertx;
 import java.util.ArrayList;
 import java.util.List;
@@ -817,9 +818,11 @@ class CalloutHttpPolicyV4Test {
         @Test
         void should_set_max_pool_size_from_configuration() {
             var mockVertx = mock(Vertx.class);
-            var mockHttpClient = mock(io.vertx.rxjava3.core.http.HttpClient.class);
-            var optionsCaptor = ArgumentCaptor.forClass(io.vertx.core.http.HttpClientOptions.class);
-            when(mockVertx.createHttpClient(optionsCaptor.capture())).thenReturn(mockHttpClient);
+            var mockHttpClient = mock(io.vertx.rxjava3.core.http.HttpClientAgent.class);
+            var poolOptionsCaptor = ArgumentCaptor.forClass(PoolOptions.class);
+            when(mockVertx.createHttpClient(any(io.vertx.core.http.HttpClientOptions.class), poolOptionsCaptor.capture())).thenReturn(
+                mockHttpClient
+            );
 
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, mockVertx).request(aRequest().build()).build();
 
@@ -831,21 +834,23 @@ class CalloutHttpPolicyV4Test {
                     .build()
             ).getHttpClient(ctx);
 
-            assertThat(optionsCaptor.getValue().getMaxPoolSize()).isEqualTo(10);
+            assertThat(poolOptionsCaptor.getValue().getHttp1MaxSize()).isEqualTo(10);
         }
 
         @Test
         void should_set_max_pool_size_default_value() {
             var mockVertx = mock(Vertx.class);
-            var mockHttpClient = mock(io.vertx.rxjava3.core.http.HttpClient.class);
-            var optionsCaptor = ArgumentCaptor.forClass(io.vertx.core.http.HttpClientOptions.class);
-            when(mockVertx.createHttpClient(optionsCaptor.capture())).thenReturn(mockHttpClient);
+            var mockHttpClient = mock(io.vertx.rxjava3.core.http.HttpClientAgent.class);
+            var poolOptionsCaptor = ArgumentCaptor.forClass(PoolOptions.class);
+            when(mockVertx.createHttpClient(any(io.vertx.core.http.HttpClientOptions.class), poolOptionsCaptor.capture())).thenReturn(
+                mockHttpClient
+            );
 
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, mockVertx).request(aRequest().build()).build();
 
             policy(CalloutHttpPolicyConfiguration.builder().url("http://localhost/").method(HttpMethod.GET).build()).getHttpClient(ctx);
 
-            assertThat(optionsCaptor.getValue().getMaxPoolSize()).isEqualTo(20);
+            assertThat(poolOptionsCaptor.getValue().getHttp1MaxSize()).isEqualTo(20);
         }
     }
 

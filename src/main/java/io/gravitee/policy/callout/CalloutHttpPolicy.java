@@ -39,6 +39,7 @@ import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.http.HttpHeaders;
+import io.vertx.core.http.PoolOptions;
 import io.vertx.core.http.RequestOptions;
 import io.vertx.rxjava3.core.Vertx;
 import io.vertx.rxjava3.core.http.HttpClient;
@@ -258,8 +259,13 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
                                 );
                         }
                     }
+
+                    PoolOptions poolOptions = new PoolOptions().setHttp1MaxSize(
+                        configuration.getHttpOptions().getMaxConcurrentConnections()
+                    );
+
                     var vertx = ctx.getComponent(Vertx.class);
-                    this.httpClient = vertx.createHttpClient(options);
+                    this.httpClient = vertx.createHttpClient(options, poolOptions);
                 }
             }
         }
