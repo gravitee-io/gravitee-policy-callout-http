@@ -231,10 +231,14 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
      * @param ctx The context to get Vertx component
      * @return Built or existing HttpClient
      */
-    private HttpClient getHttpClient(BaseExecutionContext ctx) {
+    HttpClient getHttpClient(BaseExecutionContext ctx) {
         if (this.httpClient == null) {
             // Vertx only uses ssl options when https
-            var options = new HttpClientOptions().setSsl(true).setTrustAll(true).setVerifyHost(false);
+            var options = new HttpClientOptions()
+                .setSsl(true)
+                .setTrustAll(true)
+                .setVerifyHost(false)
+                .setMaxPoolSize(configuration.getHttpOptions().getMaxConcurrentConnections());
 
             if (configuration.isUseSystemProxy()) {
                 Configuration config = ctx.getComponent(Configuration.class);
