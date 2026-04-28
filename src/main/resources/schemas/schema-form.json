@@ -284,6 +284,17 @@
                     }
                 ]
             }
+        },
+        "http": {
+            "type": "object",
+            "properties": {
+                "maxConcurrentConnections": {
+                    "title": "Max concurrent connections",
+                    "description": "The maximum concurrent connections triggered by the policy at the same time.",
+                    "type": "integer",
+                    "default": 20
+                }
+            }
         }
     },
     "required": ["url", "method", "exitOnError"]
