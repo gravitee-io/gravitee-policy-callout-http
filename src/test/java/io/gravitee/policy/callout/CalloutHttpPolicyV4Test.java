@@ -39,6 +39,7 @@ import io.gravitee.gateway.reactive.api.tracing.Tracer;
 import io.gravitee.gateway.reactive.core.context.interruption.InterruptionFailureException;
 import io.gravitee.node.api.Node;
 import io.gravitee.node.api.configuration.Configuration;
+import io.gravitee.plugin.configurations.http.HttpClientOptions;
 import io.gravitee.policy.callout.configuration.CalloutHttpPolicyConfiguration;
 import io.gravitee.policy.callout.configuration.Variable;
 import io.reactivex.rxjava3.core.Flowable;
@@ -55,6 +56,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import test.ExecutionContextBuilder;
 import test.stub.KafkaMessageRequestStub;
 import test.stub.KafkaMessageResponseStub;
@@ -806,6 +808,44 @@ class CalloutHttpPolicyV4Test {
             await()
                 .atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(() -> wiremock.verify(recordsCount, getRequestedFor(urlPathEqualTo("/"))));
+        }
+    }
+
+    @Nested
+    class GetHttpClient {
+
+        @Test
+        void should_set_max_pool_size_from_configuration() {
+            var mockVertx = mock(Vertx.class);
+            var mockHttpClient = mock(io.vertx.rxjava3.core.http.HttpClient.class);
+            var optionsCaptor = ArgumentCaptor.forClass(io.vertx.core.http.HttpClientOptions.class);
+            when(mockVertx.createHttpClient(optionsCaptor.capture())).thenReturn(mockHttpClient);
+
+            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, mockVertx).request(aRequest().build()).build();
+
+            policy(
+                CalloutHttpPolicyConfiguration.builder()
+                    .url("http://localhost/")
+                    .method(HttpMethod.GET)
+                    .httpOptions(HttpClientOptions.builder().maxConcurrentConnections(10).build())
+                    .build()
+            ).getHttpClient(ctx);
+
+            assertThat(optionsCaptor.getValue().getMaxPoolSize()).isEqualTo(10);
+        }
+
+        @Test
+        void should_set_max_pool_size_default_value() {
+            var mockVertx = mock(Vertx.class);
+            var mockHttpClient = mock(io.vertx.rxjava3.core.http.HttpClient.class);
+            var optionsCaptor = ArgumentCaptor.forClass(io.vertx.core.http.HttpClientOptions.class);
+            when(mockVertx.createHttpClient(optionsCaptor.capture())).thenReturn(mockHttpClient);
+
+            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, mockVertx).request(aRequest().build()).build();
+
+            policy(CalloutHttpPolicyConfiguration.builder().url("http://localhost/").method(HttpMethod.GET).build()).getHttpClient(ctx);
+
+            assertThat(optionsCaptor.getValue().getMaxPoolSize()).isEqualTo(20);
         }
     }
 
