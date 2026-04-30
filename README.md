@@ -219,6 +219,13 @@ spec:
 
 ## Changelog
 
+### [7.0.0-alpha.2](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/7.0.0-alpha.1...7.0.0-alpha.2) (2026-04-30)
+
+
+##### Bug Fixes
+
+* performance improvement : make http connection pool configurable for http callout policy ([04eafc5](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/04eafc5157c58781e23fec4f97f3b36f6994553d))
+
 ### [7.0.0-alpha.1](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/6.0.0...7.0.0-alpha.1) (2026-03-31)
 
 
