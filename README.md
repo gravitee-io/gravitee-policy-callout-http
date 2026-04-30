@@ -218,6 +218,13 @@ spec:
 
 ## Changelog
 
+#### [5.4.1](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/5.4.0...5.4.1) (2026-04-30)
+
+
+##### Bug Fixes
+
+* performance improvement : make http connection pool configurable for http callout policy ([cef1a82](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/cef1a82f02a38c835e48853f9708197dc894cad3))
+
 ### [5.4.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/5.3.0...5.4.0) (2026-02-18)
 
 
