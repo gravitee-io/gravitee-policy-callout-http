@@ -219,6 +219,13 @@ spec:
 
 ## Changelog
 
+### [7.0.0-alpha.3](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/7.0.0-alpha.2...7.0.0-alpha.3) (2026-06-03)
+
+
+##### Bug Fixes
+
+* bump apim dependency to 4.12.0-milestone.1 ([4674668](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/4674668afb0a779480065a82a6db47216b510dc1))
+
 ### [7.0.0-alpha.2](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/7.0.0-alpha.1...7.0.0-alpha.2) (2026-04-30)
 
 
