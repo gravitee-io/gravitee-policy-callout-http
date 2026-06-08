@@ -50,6 +50,7 @@
         "body": {
             "title": "Request body",
             "type": "string",
+            "format": "gio-code-editor",
             "x-schema-form": {
                 "type": "codemirror",
                 "codemirrorOptions": {
