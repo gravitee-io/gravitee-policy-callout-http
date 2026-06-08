@@ -219,6 +219,13 @@ spec:
 
 ## Changelog
 
+### [7.0.0-alpha.4](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/7.0.0-alpha.3...7.0.0-alpha.4) (2026-06-08)
+
+
+##### Bug Fixes
+
+* support multi-line editing for request body field ([#192](https://github.com/gravitee-io/gravitee-policy-callout-http/issues/192)) ([b426ad7](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/b426ad7f6228aef080ef82099e6837ed617362fb))
+
 ### [7.0.0-alpha.3](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/7.0.0-alpha.2...7.0.0-alpha.3) (2026-06-03)
 
 
