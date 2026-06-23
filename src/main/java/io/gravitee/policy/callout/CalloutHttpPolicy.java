@@ -240,11 +240,7 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
                     // SSL options (trustAll, verifyHost) are set at client level but only applied per-request
                     // when the URL scheme is HTTPS. Vertx's RequestOptions.setAbsoluteURI() overrides the client
                     // SSL setting based on the actual URL scheme, so HTTP requests are not affected.
-                    var options = new HttpClientOptions()
-                        .setSsl(true)
-                        .setTrustAll(true)
-                        .setVerifyHost(false)
-                        .setMaxPoolSize(configuration.getHttpOptions().getMaxConcurrentConnections());
+                    var options = new HttpClientOptions().setSsl(true).setTrustAll(true).setVerifyHost(false);
 
                     if (configuration.isUseSystemProxy()) {
                         Configuration config = ctx.getComponent(Configuration.class);
