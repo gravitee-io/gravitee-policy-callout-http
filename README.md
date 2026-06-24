@@ -219,6 +219,25 @@ spec:
 
 ## Changelog
 
+### [7.0.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/6.0.2...7.0.0) (2026-06-24)
+
+
+##### Bug Fixes
+
+* bump apim dependency to 4.12.0-milestone.1 ([262893f](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/262893f98712fea57cbc0e51856118cb3a0a3abf))
+* configure callout connection pool via Vert.x 5 PoolOptions ([4ee3f98](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/4ee3f98b57aa30763b800fc9c7ded0f5c0de8a9b)), closes [PoolOptions#setHttp1](https://github.com/PoolOptions/issues/setHttp1)
+* performance improvement : make http connection pool configurable for http callout policy ([805378f](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/805378f2eafe5e2db202a6be0546fd8342920aea))
+
+
+##### Features
+
+* upgrade to vertx 5 ([60edb56](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/60edb568ab24748eaa56ca52c90c90c04771784d))
+
+
+##### BREAKING CHANGES
+
+* upgrade to vertx 5.x
+
 #### [6.0.2](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/6.0.1...6.0.2) (2026-06-08)
 
 
