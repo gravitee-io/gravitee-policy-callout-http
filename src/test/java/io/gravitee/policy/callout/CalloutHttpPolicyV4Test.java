@@ -332,6 +332,83 @@ class CalloutHttpPolicyV4Test {
                 });
         }
 
+        @Test
+        void should_continue_when_fail_to_call_target_callout_and_exit_on_error_is_disabled() {
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Node.class, mock(Node.class))
+                .withComponent(Vertx.class, Vertx.vertx())
+                .request(aRequest().build())
+                .build();
+
+            policy(CalloutHttpPolicyConfiguration.builder().url("http://unknown").method(HttpMethod.GET).exitOnError(false).build())
+                .onRequest(ctx)
+                .test()
+                .awaitDone(30, TimeUnit.SECONDS)
+                .assertComplete();
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = { "url", "body", "header" })
+        void should_interrupt_when_fail_to_evaluate_request_configuration(String configurationField) {
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Node.class, mock(Node.class))
+                .withComponent(Vertx.class, Vertx.vertx())
+                .request(aRequest().build())
+                .build();
+            var configurationBuilder = CalloutHttpPolicyConfiguration.builder()
+                .url(targetUrl(false))
+                .method(HttpMethod.GET)
+                .exitOnError(true);
+            var invalidExpression = "{#request.headers['x'][0";
+
+            switch (configurationField) {
+                case "url" -> configurationBuilder.url(invalidExpression);
+                case "body" -> configurationBuilder.body(invalidExpression);
+                case "header" -> configurationBuilder.headers(
+                    List.of(new io.gravitee.policy.callout.configuration.HttpHeader("X-Token", invalidExpression))
+                );
+                default -> throw new IllegalArgumentException("Unsupported configuration field: " + configurationField);
+            }
+
+            policy(configurationBuilder.build())
+                .onRequest(ctx)
+                .test()
+                .awaitDone(30, TimeUnit.SECONDS)
+                .assertError(e -> {
+                    assertThat(e).isInstanceOf(InterruptionFailureException.class);
+                    var executionFailure = ((InterruptionFailureException) e).getExecutionFailure();
+                    assertThat(executionFailure.statusCode()).isEqualTo(500);
+                    assertThat(executionFailure.key()).isEqualTo(CALLOUT_HTTP_ERROR);
+                    assertThat(executionFailure.message()).contains("No ending suffix");
+                    assertThat(executionFailure.cause())
+                        .isInstanceOf(CalloutException.class)
+                        .hasCauseInstanceOf(IllegalArgumentException.class);
+                    return true;
+                });
+        }
+
+        @Test
+        void should_continue_when_fail_to_evaluate_request_configuration_and_exit_on_error_is_disabled() {
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Node.class, mock(Node.class))
+                .withComponent(Vertx.class, Vertx.vertx())
+                .request(aRequest().build())
+                .build();
+
+            policy(
+                CalloutHttpPolicyConfiguration.builder()
+                    .url(targetUrl(false))
+                    .method(HttpMethod.GET)
+                    .headers(List.of(new io.gravitee.policy.callout.configuration.HttpHeader("X-Token", "{#request.headers['x'][0")))
+                    .exitOnError(false)
+                    .build()
+            )
+                .onRequest(ctx)
+                .test()
+                .awaitDone(30, TimeUnit.SECONDS)
+                .assertComplete();
+        }
+
         @ParameterizedTest
         @ValueSource(booleans = { true, false })
         void should_call_and_do_nothing_when_fire_and_forget_defined(boolean exitOnError) {

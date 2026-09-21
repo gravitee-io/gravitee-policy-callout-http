@@ -91,13 +91,16 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
     }
 
     private Completable doCallOut(BaseExecutionContext ctx, TemplateEngine templateEngine) {
-        return CalloutUtils.prepareCalloutRequest(templateEngine, configuration).flatMapCompletable(reqConfig -> {
-            if (configuration.isFireAndForget()) {
-                return Completable.fromRunnable(() -> executeCallOut(ctx, reqConfig).onErrorComplete().subscribe());
-            } else {
-                return executeCallOut(ctx, reqConfig);
-            }
-        });
+        return CalloutUtils.prepareCalloutRequest(templateEngine, configuration)
+            .onErrorResumeNext(th -> Single.error(new CalloutException(th)))
+            .flatMapCompletable(reqConfig -> {
+                if (configuration.isFireAndForget()) {
+                    return Completable.fromRunnable(() -> executeCallOut(ctx, reqConfig).onErrorComplete().subscribe());
+                } else {
+                    return executeCallOut(ctx, reqConfig);
+                }
+            })
+            .onErrorResumeNext(th -> handleCalloutFailure(ctx, th));
     }
 
     private Completable executeCallOut(BaseExecutionContext ctx, Req reqConfig) {
@@ -135,24 +138,33 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
                     .map(calloutResponse -> new CalloutResponseWithDelegate(calloutResponse, httpClientResponse.getDelegate()))
             )
             .flatMapCompletable(calloutResponseWithDelegate -> processCalloutResponse(ctx, calloutResponseWithDelegate, httpRequestSpan))
-            .onErrorResumeNext(th -> {
-                ctx.getTracer().endOnError(httpRequestSpan, th);
+            .doOnError(th -> ctx.getTracer().endOnError(httpRequestSpan, th));
+    }
 
-                if (th instanceof CalloutException && configuration.isExitOnError()) {
-                    ctx.withLogger(log).error(th.getCause().getMessage(), th.getCause());
-                    if (ctx instanceof HttpPlainExecutionContext httpContext) {
-                        return httpContext.interruptWith(
-                            new ExecutionFailure(configuration.getErrorStatusCode())
-                                .key(CALLOUT_HTTP_ERROR)
-                                .message(th.getCause().getMessage())
-                                .cause(th)
-                        );
-                    } else if (ctx instanceof KafkaMessageExecutionContext kafkaContext) {
-                        return kafkaContext.executionContext().interruptWith(org.apache.kafka.common.protocol.Errors.UNKNOWN_SERVER_ERROR);
-                    }
-                }
-                return Completable.error(th);
-            });
+    private Completable handleCalloutFailure(BaseExecutionContext ctx, Throwable throwable) {
+        if (!(throwable instanceof CalloutException calloutException)) {
+            return Completable.error(throwable);
+        }
+
+        Throwable cause = calloutException.getCause();
+        ctx.withLogger(log).error(cause.getMessage(), cause);
+
+        if (configuration.isFireAndForget() || !configuration.isExitOnError()) {
+            return Completable.complete();
+        }
+
+        if (ctx instanceof HttpPlainExecutionContext httpContext) {
+            return httpContext.interruptWith(
+                new ExecutionFailure(configuration.getErrorStatusCode())
+                    .key(CALLOUT_HTTP_ERROR)
+                    .message(cause.getMessage())
+                    .cause(calloutException)
+            );
+        } else if (ctx instanceof KafkaMessageExecutionContext kafkaContext) {
+            return kafkaContext.executionContext().interruptWith(org.apache.kafka.common.protocol.Errors.UNKNOWN_SERVER_ERROR);
+        }
+
+        return Completable.error(calloutException);
     }
 
     private Completable processCalloutResponse(
