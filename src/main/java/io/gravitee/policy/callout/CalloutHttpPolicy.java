@@ -95,7 +95,12 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
             .onErrorResumeNext(th -> Single.error(new CalloutException(th)))
             .flatMapCompletable(reqConfig -> {
                 if (configuration.isFireAndForget()) {
-                    return Completable.fromRunnable(() -> executeCallOut(ctx, reqConfig).onErrorComplete().subscribe());
+                    return Completable.fromRunnable(() ->
+                        executeCallOut(ctx, reqConfig)
+                            .onErrorResumeNext(th -> handleCalloutFailure(ctx, th))
+                            .onErrorComplete()
+                            .subscribe()
+                    );
                 } else {
                     return executeCallOut(ctx, reqConfig);
                 }
@@ -104,41 +109,46 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
     }
 
     private Completable executeCallOut(BaseExecutionContext ctx, Req reqConfig) {
-        var httpClient = getHttpClient(ctx);
-        var requestOpts = new RequestOptions().setAbsoluteURI(reqConfig.url).setMethod(convert(configuration.getMethod()));
-        ObservableHttpClientRequest observableHttpClientRequest = new ObservableHttpClientRequest(requestOpts);
-        Span httpRequestSpan = ctx.getTracer().startSpanFrom(observableHttpClientRequest);
-        return httpClient
-            .rxRequest(requestOpts)
-            .flatMap(req -> {
-                observableHttpClientRequest.httpClientRequest(req.getDelegate());
-                ctx.getTracer().injectSpanContext(req::putHeader);
-                if (reqConfig.headerList() != null) {
-                    reqConfig
-                        .headerList()
-                        .stream()
-                        .filter(header -> header.getValue() != null)
-                        .forEach(header -> req.putHeader(header.getName(), header.getValue()));
-                }
-
-                if (reqConfig.body().isPresent() && !reqConfig.body().get().isEmpty()) {
-                    req.headers().remove(HttpHeaders.TRANSFER_ENCODING);
-                    // Removing Content-Length header to let VertX automatically set it correctly
-                    req.headers().remove(HttpHeaders.CONTENT_LENGTH);
-                    return req.rxSend(Buffer.buffer(reqConfig.body().get()));
-                }
-
-                return req.send();
-            })
+        return Single.fromCallable(() -> new RequestOptions().setAbsoluteURI(reqConfig.url).setMethod(convert(configuration.getMethod())))
             .onErrorResumeNext(throwable -> Single.error(new CalloutException(throwable)))
-            .flatMap(httpClientResponse ->
-                httpClientResponse
-                    .body()
-                    .map(responseBody -> new CalloutResponse(httpClientResponse.getDelegate(), responseBody.toString()))
-                    .map(calloutResponse -> new CalloutResponseWithDelegate(calloutResponse, httpClientResponse.getDelegate()))
-            )
-            .flatMapCompletable(calloutResponseWithDelegate -> processCalloutResponse(ctx, calloutResponseWithDelegate, httpRequestSpan))
-            .doOnError(th -> ctx.getTracer().endOnError(httpRequestSpan, th));
+            .flatMapCompletable(requestOpts -> {
+                var httpClient = getHttpClient(ctx);
+                ObservableHttpClientRequest observableHttpClientRequest = new ObservableHttpClientRequest(requestOpts);
+                Span httpRequestSpan = ctx.getTracer().startSpanFrom(observableHttpClientRequest);
+                return httpClient
+                    .rxRequest(requestOpts)
+                    .flatMap(req -> {
+                        observableHttpClientRequest.httpClientRequest(req.getDelegate());
+                        ctx.getTracer().injectSpanContext(req::putHeader);
+                        if (reqConfig.headerList() != null) {
+                            reqConfig
+                                .headerList()
+                                .stream()
+                                .filter(header -> header.getValue() != null)
+                                .forEach(header -> req.putHeader(header.getName(), header.getValue()));
+                        }
+
+                        if (reqConfig.body().isPresent() && !reqConfig.body().get().isEmpty()) {
+                            req.headers().remove(HttpHeaders.TRANSFER_ENCODING);
+                            // Removing Content-Length header to let VertX automatically set it correctly
+                            req.headers().remove(HttpHeaders.CONTENT_LENGTH);
+                            return req.rxSend(Buffer.buffer(reqConfig.body().get()));
+                        }
+
+                        return req.send();
+                    })
+                    .flatMap(httpClientResponse ->
+                        httpClientResponse
+                            .body()
+                            .map(responseBody -> new CalloutResponse(httpClientResponse.getDelegate(), responseBody.toString()))
+                            .map(calloutResponse -> new CalloutResponseWithDelegate(calloutResponse, httpClientResponse.getDelegate()))
+                    )
+                    .onErrorResumeNext(throwable -> Single.error(new CalloutException(throwable)))
+                    .flatMapCompletable(calloutResponseWithDelegate ->
+                        processCalloutResponse(ctx, calloutResponseWithDelegate, httpRequestSpan)
+                    )
+                    .doOnError(th -> ctx.getTracer().endOnError(httpRequestSpan, th));
+            });
     }
 
     private Completable handleCalloutFailure(BaseExecutionContext ctx, Throwable throwable) {
@@ -147,11 +157,14 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
         }
 
         Throwable cause = calloutException.getCause();
-        ctx.withLogger(log).error(cause.getMessage(), cause);
-
-        if (configuration.isFireAndForget() || !configuration.isExitOnError()) {
+        boolean tolerated = configuration.isFireAndForget() || !configuration.isExitOnError();
+        if (tolerated) {
+            // The failure is tolerated: the policy chain continues, so this isn't an operator-facing error.
+            ctx.withLogger(log).warn(cause.getMessage(), cause);
             return Completable.complete();
         }
+
+        ctx.withLogger(log).error(cause.getMessage(), cause);
 
         if (ctx instanceof HttpPlainExecutionContext httpContext) {
             return httpContext.interruptWith(
