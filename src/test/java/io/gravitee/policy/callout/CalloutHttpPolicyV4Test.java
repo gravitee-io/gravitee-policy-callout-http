@@ -29,6 +29,10 @@ import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.*;
 import static test.RequestBuilder.aRequest;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import io.gravitee.common.http.HttpMethod;
 import io.gravitee.el.TemplateEngine;
@@ -49,6 +53,7 @@ import io.vertx.rxjava3.core.Vertx;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,12 +63,16 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.slf4j.LoggerFactory;
 import test.ExecutionContextBuilder;
 import test.stub.KafkaMessageRequestStub;
 import test.stub.KafkaMessageResponseStub;
 import test.stub.KafkaMessageStub;
 
 class CalloutHttpPolicyV4Test {
+
+    // Deterministic failing target: connection is refused immediately, unlike a DNS-dependent hostname.
+    private static final String UNREACHABLE_URL = "http://127.0.0.1:1";
 
     @RegisterExtension
     static WireMockExtension wiremock = WireMockExtension.newInstance().options(wireMockConfig().dynamicPort().dynamicHttpsPort()).build();
@@ -327,7 +336,251 @@ class CalloutHttpPolicyV4Test {
                     var executionFailure = ((InterruptionFailureException) e).getExecutionFailure();
                     assertThat(executionFailure.statusCode()).isEqualTo(500);
                     assertThat(executionFailure.key()).isEqualTo(CALLOUT_HTTP_ERROR);
-                    assertThat(executionFailure.message()).contains("Failed to resolve 'unknown'");
+                    // The client only sees a generic message; the resolver failure detail stays in the cause and the logs.
+                    assertThat(executionFailure.message()).isEqualTo("The HTTP callout could not be completed.");
+                    assertThat(executionFailure.cause()).isInstanceOf(CalloutException.class);
+                    return true;
+                });
+        }
+
+        @Test
+        void should_continue_when_fail_to_call_target_callout_and_exit_on_error_is_disabled() {
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Node.class, mock(Node.class))
+                .withComponent(Vertx.class, Vertx.vertx())
+                .request(aRequest().build())
+                .build();
+
+            policy(CalloutHttpPolicyConfiguration.builder().url(UNREACHABLE_URL).method(HttpMethod.GET).exitOnError(false).build())
+                .onRequest(ctx)
+                .test()
+                .awaitDone(30, TimeUnit.SECONDS)
+                .assertComplete();
+        }
+
+        @Test
+        void should_interrupt_when_callout_request_is_invalid() {
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Node.class, mock(Node.class))
+                .withComponent(Vertx.class, Vertx.vertx())
+                .request(aRequest().build())
+                .build();
+
+            policy(CalloutHttpPolicyConfiguration.builder().url("not a url").method(HttpMethod.GET).exitOnError(true).build())
+                .onRequest(ctx)
+                .test()
+                .awaitDone(30, TimeUnit.SECONDS)
+                .assertError(e -> {
+                    assertThat(e).isInstanceOf(InterruptionFailureException.class);
+                    var executionFailure = ((InterruptionFailureException) e).getExecutionFailure();
+                    assertThat(executionFailure.statusCode()).isEqualTo(500);
+                    assertThat(executionFailure.key()).isEqualTo(CALLOUT_HTTP_ERROR);
+                    // The client only sees a generic message; the malformed-URL detail stays in the cause and the logs.
+                    assertThat(executionFailure.message()).isEqualTo("The HTTP callout could not be completed.");
+                    assertThat(executionFailure.cause()).isInstanceOf(CalloutException.class);
+                    return true;
+                });
+        }
+
+        @Test
+        void should_continue_when_callout_request_is_invalid_and_exit_on_error_is_disabled() {
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Node.class, mock(Node.class))
+                .withComponent(Vertx.class, Vertx.vertx())
+                .request(aRequest().build())
+                .build();
+
+            policy(CalloutHttpPolicyConfiguration.builder().url("not a url").method(HttpMethod.GET).exitOnError(false).build())
+                .onRequest(ctx)
+                .test()
+                .awaitDone(30, TimeUnit.SECONDS)
+                .assertComplete();
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = { "url", "body", "header" })
+        void should_interrupt_when_fail_to_evaluate_request_configuration(String configurationField) {
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Node.class, mock(Node.class))
+                .withComponent(Vertx.class, Vertx.vertx())
+                .request(aRequest().build())
+                .build();
+            var configurationBuilder = CalloutHttpPolicyConfiguration.builder()
+                .url(targetUrl(false))
+                .method(HttpMethod.GET)
+                .exitOnError(true);
+            var invalidExpression = "{#request.headers['x'][0";
+
+            switch (configurationField) {
+                case "url" -> configurationBuilder.url(invalidExpression);
+                case "body" -> configurationBuilder.body(invalidExpression);
+                case "header" -> configurationBuilder.headers(
+                    List.of(new io.gravitee.policy.callout.configuration.HttpHeader("X-Token", invalidExpression))
+                );
+                default -> throw new IllegalArgumentException("Unsupported configuration field: " + configurationField);
+            }
+
+            policy(configurationBuilder.build())
+                .onRequest(ctx)
+                .test()
+                .awaitDone(30, TimeUnit.SECONDS)
+                .assertError(e -> {
+                    assertThat(e).isInstanceOf(InterruptionFailureException.class);
+                    var executionFailure = ((InterruptionFailureException) e).getExecutionFailure();
+                    assertThat(executionFailure.statusCode()).isEqualTo(500);
+                    assertThat(executionFailure.key()).isEqualTo(CALLOUT_HTTP_ERROR);
+                    // The client only sees a generic message; the SpEL parse error (which echoes the configured
+                    // expression) stays in the cause and the logs, not the response.
+                    assertThat(executionFailure.message()).isEqualTo("The HTTP callout could not be completed.");
+                    assertThat(executionFailure.cause())
+                        .isInstanceOf(CalloutException.class)
+                        .hasCauseInstanceOf(IllegalArgumentException.class);
+                    return true;
+                });
+        }
+
+        @Test
+        void should_continue_when_fail_to_evaluate_request_configuration_and_exit_on_error_is_disabled() {
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Node.class, mock(Node.class))
+                .withComponent(Vertx.class, Vertx.vertx())
+                .request(aRequest().build())
+                .build();
+
+            policy(
+                CalloutHttpPolicyConfiguration.builder()
+                    .url(targetUrl(false))
+                    .method(HttpMethod.GET)
+                    .headers(List.of(new io.gravitee.policy.callout.configuration.HttpHeader("X-Token", "{#request.headers['x'][0")))
+                    .exitOnError(false)
+                    .build()
+            )
+                .onRequest(ctx)
+                .test()
+                .awaitDone(30, TimeUnit.SECONDS)
+                .assertComplete();
+        }
+
+        @Test
+        void should_interrupt_when_error_condition_evaluation_fails() {
+            wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"a-value\"}")));
+
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Node.class, mock(Node.class))
+                .withComponent(Vertx.class, Vertx.vertx())
+                .request(aRequest().build())
+                .build();
+
+            policy(
+                CalloutHttpPolicyConfiguration.builder()
+                    .url(targetUrl(false))
+                    .method(HttpMethod.GET)
+                    .exitOnError(true)
+                    .errorCondition("{#calloutResponse.status !=")
+                    .build()
+            )
+                .onRequest(ctx)
+                .test()
+                .awaitDone(30, TimeUnit.SECONDS)
+                .assertError(e -> {
+                    assertThat(e).isInstanceOf(InterruptionFailureException.class);
+                    var executionFailure = ((InterruptionFailureException) e).getExecutionFailure();
+                    assertThat(executionFailure.statusCode()).isEqualTo(500);
+                    assertThat(executionFailure.key()).isEqualTo(CALLOUT_HTTP_ERROR);
+                    assertThat(executionFailure.message()).isEqualTo("The HTTP callout could not be completed.");
+                    assertThat(executionFailure.cause()).isInstanceOf(CalloutException.class);
+                    return true;
+                });
+        }
+
+        @Test
+        void should_continue_when_variable_evaluation_fails_and_exit_on_error_is_disabled() {
+            wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"a-value\"}")));
+
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Node.class, mock(Node.class))
+                .withComponent(Vertx.class, Vertx.vertx())
+                .request(aRequest().build())
+                .build();
+
+            policy(
+                CalloutHttpPolicyConfiguration.builder()
+                    .url(targetUrl(false))
+                    .method(HttpMethod.GET)
+                    .exitOnError(false)
+                    .variables(List.of(new Variable("bad", "{#calloutResponse.content.bad(")))
+                    .build()
+            )
+                .onRequest(ctx)
+                .test()
+                .awaitDone(30, TimeUnit.SECONDS)
+                .assertComplete();
+        }
+
+        @Test
+        void should_interrupt_when_variable_evaluation_fails() {
+            wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200).withBody("{\"key\": \"a-value\"}")));
+
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Node.class, mock(Node.class))
+                .withComponent(Vertx.class, Vertx.vertx())
+                .request(aRequest().build())
+                .build();
+
+            policy(
+                CalloutHttpPolicyConfiguration.builder()
+                    .url(targetUrl(false))
+                    .method(HttpMethod.GET)
+                    .exitOnError(true)
+                    .errorCondition("{#calloutResponse.status != 200}")
+                    .variables(List.of(new Variable("bad", "{#calloutResponse.content.bad(")))
+                    .build()
+            )
+                .onRequest(ctx)
+                .test()
+                .awaitDone(30, TimeUnit.SECONDS)
+                .assertError(e -> {
+                    assertThat(e).isInstanceOf(InterruptionFailureException.class);
+                    var executionFailure = ((InterruptionFailureException) e).getExecutionFailure();
+                    assertThat(executionFailure.statusCode()).isEqualTo(500);
+                    assertThat(executionFailure.key()).isEqualTo(CALLOUT_HTTP_ERROR);
+                    assertThat(executionFailure.message()).isEqualTo("The HTTP callout could not be completed.");
+                    assertThat(executionFailure.cause()).isInstanceOf(CalloutException.class);
+                    return true;
+                });
+        }
+
+        @Test
+        void should_interrupt_when_error_content_evaluation_fails() {
+            wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(400).withBody("Bad request")));
+
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Node.class, mock(Node.class))
+                .withComponent(Vertx.class, Vertx.vertx())
+                .request(aRequest().build())
+                .build();
+
+            policy(
+                CalloutHttpPolicyConfiguration.builder()
+                    .url(targetUrl(false))
+                    .method(HttpMethod.GET)
+                    .exitOnError(true)
+                    .errorCondition("{#calloutResponse.status != 200}")
+                    .errorContent("{#calloutResponse.content.bad(")
+                    .build()
+            )
+                .onRequest(ctx)
+                .test()
+                .awaitDone(30, TimeUnit.SECONDS)
+                .assertError(e -> {
+                    assertThat(e).isInstanceOf(InterruptionFailureException.class);
+                    var executionFailure = ((InterruptionFailureException) e).getExecutionFailure();
+                    assertThat(executionFailure.statusCode()).isEqualTo(500);
+                    // Not CALLOUT_EXIT_ON_ERROR: the errorContent expression itself failed to evaluate, so no
+                    // legitimate "exit on error" response could be built.
+                    assertThat(executionFailure.key()).isEqualTo(CALLOUT_HTTP_ERROR);
+                    assertThat(executionFailure.message()).isEqualTo("The HTTP callout could not be completed.");
+                    assertThat(executionFailure.cause()).isInstanceOf(CalloutException.class);
                     return true;
                 });
         }
@@ -363,6 +616,65 @@ class CalloutHttpPolicyV4Test {
             await()
                 .atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(() -> wiremock.verify(getRequestedFor(urlPathEqualTo("/"))));
+        }
+
+        @Test
+        void should_log_and_continue_when_fire_and_forget_callout_fails() {
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Node.class, mock(Node.class))
+                .withComponent(Vertx.class, Vertx.vertx())
+                .request(aRequest().build())
+                .build();
+
+            try (var logs = captureLogs()) {
+                policy(
+                    CalloutHttpPolicyConfiguration.builder()
+                        .url(UNREACHABLE_URL)
+                        .method(HttpMethod.GET)
+                        .fireAndForget(true)
+                        // Pinned so this exercises fireAndForget's own branch of `tolerated`, not exitOnError's default.
+                        .exitOnError(true)
+                        .build()
+                )
+                    .onRequest(ctx)
+                    .test()
+                    .awaitDone(30, TimeUnit.SECONDS)
+                    .assertComplete();
+
+                // Matches on content rather than list position/size: other tests' detached fire-and-forget
+                // subscriptions can still be logging to this process-global logger while this appender is attached.
+                await()
+                    .atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(() ->
+                        assertThat(logs.list).anySatisfy(event -> {
+                            assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                            assertThat(event.getFormattedMessage()).contains(UNREACHABLE_URL);
+                        })
+                    );
+            }
+        }
+
+        @Test
+        void should_log_at_warn_level_when_exit_on_error_is_disabled() {
+            var ctx = new ExecutionContextBuilder()
+                .withComponent(Node.class, mock(Node.class))
+                .withComponent(Vertx.class, Vertx.vertx())
+                .request(aRequest().build())
+                .build();
+
+            try (var logs = captureLogs()) {
+                policy(CalloutHttpPolicyConfiguration.builder().url(UNREACHABLE_URL).method(HttpMethod.GET).exitOnError(false).build())
+                    .onRequest(ctx)
+                    .test()
+                    .awaitDone(30, TimeUnit.SECONDS)
+                    .assertComplete();
+
+                // Matches on content rather than an exact size: see the comment in the test above.
+                assertThat(logs.list).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getFormattedMessage()).contains(UNREACHABLE_URL);
+                });
+            }
         }
 
         @Test
@@ -772,6 +1084,28 @@ class CalloutHttpPolicyV4Test {
                 .atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(() -> wiremock.verify(recordsCount, getRequestedFor(urlPathEqualTo("/"))));
         }
+
+        @Test
+        void should_forward_message_when_fail_to_call_target_callout_and_exit_on_error_is_disabled() {
+            KafkaMessageExecutionContext ctx = mock(KafkaMessageExecutionContext.class);
+            final KafkaMessageRequestStub request = new KafkaMessageRequestStub();
+            when(ctx.request()).thenReturn(request);
+            when(ctx.getTemplateEngine(any())).thenReturn(TemplateEngine.templateEngine());
+            when(ctx.getComponent(Vertx.class)).thenReturn(Vertx.vertx());
+            when(ctx.getTracer()).thenReturn(mock(Tracer.class));
+            when(ctx.withLogger(any())).thenReturn(mock(org.slf4j.Logger.class));
+
+            List<KafkaMessage> messages = List.of(new KafkaMessageStub("test_0"));
+
+            policy(CalloutHttpPolicyConfiguration.builder().url(UNREACHABLE_URL).method(HttpMethod.GET).exitOnError(false).build())
+                .onMessageRequest(ctx)
+                .doOnComplete(() -> request.messages(Flowable.fromIterable(messages)))
+                .test()
+                .awaitDone(3, TimeUnit.SECONDS)
+                .assertComplete();
+
+            request.messages().test().awaitDone(3, TimeUnit.SECONDS).assertComplete().assertValueCount(1);
+        }
     }
 
     @Nested
@@ -863,5 +1197,41 @@ class CalloutHttpPolicyV4Test {
 
     CalloutHttpPolicy policy(CalloutHttpPolicyConfiguration configuration) {
         return new CalloutHttpPolicy(configuration);
+    }
+
+    /**
+     * Captures the policy's log events for assertions. Auto-closeable so tests can use
+     * try-with-resources to detach the appender once done.
+     */
+    static final class LogCapture extends ListAppender<ILoggingEvent> implements AutoCloseable {
+
+        private final Logger logger;
+        private final Level originalLevel;
+
+        private LogCapture(Logger logger) {
+            this.logger = logger;
+            // logback-test.xml pins io.gravitee to ERROR, which would silently drop WARN events
+            // before any appender sees them; raise this logger's own level for the capture's lifetime.
+            this.originalLevel = logger.getLevel();
+            logger.setLevel(Level.ALL);
+            // ListAppender's own list is a plain ArrayList: policy events arrive on Vert.x event-loop threads
+            // while tests read `list` from the JUnit thread, with no happens-before edge between them.
+            this.list = new CopyOnWriteArrayList<>();
+        }
+
+        @Override
+        public void close() {
+            logger.setLevel(originalLevel);
+            logger.detachAppender(this);
+            stop();
+        }
+    }
+
+    LogCapture captureLogs() {
+        var logger = (Logger) LoggerFactory.getLogger(CalloutHttpPolicy.class);
+        var appender = new LogCapture(logger);
+        appender.start();
+        logger.addAppender(appender);
+        return appender;
     }
 }
