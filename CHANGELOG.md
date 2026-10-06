@@ -1,3 +1,10 @@
+## [6.0.3](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/6.0.2...6.0.3) (2026-10-06)
+
+
+### Bug Fixes
+
+* **deps:** bump gravitee-apim to 4.11.29 ([771cd36](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/771cd36e84b8c423bd91c1d6d552d80498edec27))
+
 ## [6.0.2](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/6.0.1...6.0.2) (2026-06-08)
 
 
