@@ -219,6 +219,13 @@ spec:
 
 ## Changelog
 
+#### [7.0.2](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/7.0.1...7.0.2) (2026-10-06)
+
+
+##### Bug Fixes
+
+* **deps:** bump gravitee-apim to 4.12.21 ([18277a0](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/18277a05f15045494c42376476c0c3b4c8fad248))
+
 #### [7.0.1](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/7.0.0...7.0.1) (2026-09-23)
 
 
