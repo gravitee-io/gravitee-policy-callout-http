@@ -46,6 +46,7 @@ import io.vertx.rxjava3.core.Vertx;
 import io.vertx.rxjava3.core.http.HttpClient;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import lombok.CustomLog;
 
 /**
@@ -309,9 +310,10 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
                         }
                     }
 
-                    PoolOptions poolOptions = new PoolOptions().setHttp1MaxSize(
-                        configuration.getHttpOptions().getMaxConcurrentConnections()
-                    );
+                    PoolOptions poolOptions = new PoolOptions()
+                        .setHttp1MaxSize(configuration.getHttpOptions().getMaxConcurrentConnections())
+                        .setMaxLifetime(maxConnectionLifetime(ctx))
+                        .setMaxLifetimeUnit(TimeUnit.MILLISECONDS);
 
                     var vertx = ctx.getComponent(Vertx.class);
                     this.httpClient = vertx.createHttpClient(options, poolOptions);
@@ -319,5 +321,14 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
             }
         }
         return this.httpClient;
+    }
+
+    private int maxConnectionLifetime(BaseExecutionContext ctx) {
+        int configuredLifetime = configuration.getHttpOptions().getMaxConnectionLifetime();
+        if (configuredLifetime < 0) {
+            ctx.withLogger(log).warn("CalloutHttp maxConnectionLifetime {} is negative; using 0 (no maximum lifetime)", configuredLifetime);
+            return 0;
+        }
+        return configuredLifetime;
     }
 }

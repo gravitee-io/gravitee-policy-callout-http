@@ -288,12 +288,21 @@
         },
         "http": {
             "type": "object",
+            "title": "HTTP client options",
             "properties": {
                 "maxConcurrentConnections": {
                     "title": "Max concurrent connections",
                     "description": "The maximum concurrent connections triggered by the policy at the same time.",
                     "type": "integer",
                     "default": 20
+                },
+                "maxConnectionLifetime": {
+                    "title": "Max connection lifetime (ms)",
+                    "description": "Maximum time in milliseconds a pooled connection lives before it is recycled once idle. 0 means no maximum lifetime. Applies to v4 APIs and to v2 APIs with Emulate v4 engine.",
+                    "type": "integer",
+                    "default": 0,
+                    "minimum": 0,
+                    "maximum": 2147483647
                 }
             }
         }

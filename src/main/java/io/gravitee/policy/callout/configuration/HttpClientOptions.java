@@ -26,4 +26,6 @@ import lombok.NoArgsConstructor;
 public class HttpClientOptions implements Serializable {
 
     private int maxConcurrentConnections = 20;
+
+    private int maxConnectionLifetime = 0;
 }
