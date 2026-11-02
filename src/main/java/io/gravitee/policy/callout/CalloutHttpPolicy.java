@@ -44,9 +44,11 @@ import io.vertx.core.http.PoolOptions;
 import io.vertx.core.http.RequestOptions;
 import io.vertx.rxjava3.core.Vertx;
 import io.vertx.rxjava3.core.http.HttpClient;
+import io.vertx.rxjava3.core.http.HttpClientRequest;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.CustomLog;
 
 /**
@@ -117,8 +119,11 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
                 var httpClient = getHttpClient(ctx);
                 ObservableHttpClientRequest observableHttpClientRequest = new ObservableHttpClientRequest(requestOpts);
                 Span httpRequestSpan = ctx.getTracer().startSpanFrom(observableHttpClientRequest);
-                return httpClient
-                    .rxRequest(requestOpts)
+                // Tracks the request between pool acquisition and the response so that disposing the chain — typically
+                // the gateway cancelling the enclosing request on its timeout — resets it and releases the pooled
+                // connection at once, instead of leaking its slot or holding a dead connection for ever.
+                AtomicReference<HttpClientRequest> pendingRequest = new AtomicReference<>();
+                return acquireCalloutRequest(httpClient, requestOpts, pendingRequest)
                     .flatMap(req -> {
                         observableHttpClientRequest.httpClientRequest(req.getDelegate());
                         ctx.getTracer().injectSpanContext(req::putHeader);
@@ -149,8 +154,60 @@ public class CalloutHttpPolicy extends CalloutHttpPolicyV3 implements HttpPolicy
                     .flatMapCompletable(calloutResponseWithDelegate ->
                         processCalloutResponse(ctx, calloutResponseWithDelegate, httpRequestSpan)
                     )
-                    .doOnError(th -> ctx.getTracer().endOnError(httpRequestSpan, th));
+                    .doOnError(th -> ctx.getTracer().endOnError(httpRequestSpan, th))
+                    .doOnDispose(() -> resetPendingCalloutRequest(pendingRequest));
             });
+    }
+
+    /**
+     * Acquires a request from the client's connection pool, resetting it immediately when the chain has already been
+     * disposed by the time the pool grants a connection. The rx bridge cannot do this by itself: disposing the
+     * {@code Single} returned by {@code rxRequest} only drops the observer, so a connection granted afterwards would
+     * silently keep its pool slot with no request ever written on it — under sustained cancel/retry load this keeps
+     * the pool collapsed long after the callout target has recovered. Mirrors the v4 HTTP proxy
+     * endpoint's {@code acquireUpstreamRequest}.
+     */
+    private Single<HttpClientRequest> acquireCalloutRequest(
+        HttpClient httpClient,
+        RequestOptions requestOpts,
+        AtomicReference<HttpClientRequest> pendingRequest
+    ) {
+        return Single.create(emitter ->
+            httpClient
+                .getDelegate()
+                .request(requestOpts)
+                .onComplete(asyncRequest -> {
+                    if (asyncRequest.succeeded()) {
+                        HttpClientRequest request = HttpClientRequest.newInstance(asyncRequest.result());
+                        // Publish before the disposed check so a concurrent disposal either sees it (doOnDispose
+                        // resets it) or is caught right here; getAndSet(null) in the reset makes a double reset a no-op.
+                        pendingRequest.set(request);
+                        if (emitter.isDisposed()) {
+                            resetPendingCalloutRequest(pendingRequest);
+                        } else {
+                            emitter.onSuccess(request);
+                        }
+                    } else {
+                        emitter.tryOnError(asyncRequest.cause());
+                    }
+                })
+        );
+    }
+
+    /**
+     * Resets the pending callout request, if any, releasing its pooled connection right away rather than leaving it
+     * held until something else closes it. {@code reset()} is a no-op on a request that already completed, and
+     * {@code getAndSet(null)} makes a second reset (dispose racing the post-acquisition disposed check) a no-op too.
+     */
+    private void resetPendingCalloutRequest(AtomicReference<HttpClientRequest> pendingRequest) {
+        HttpClientRequest request = pendingRequest.getAndSet(null);
+        if (request != null) {
+            try {
+                request.reset();
+            } catch (Exception e) {
+                log.warn("Can't properly reset callout request after downstream disposal; its pool connection may stay reserved", e);
+            }
+        }
     }
 
     private Completable handleCalloutFailure(BaseExecutionContext ctx, Throwable throwable) {
