@@ -51,6 +51,7 @@ import io.gravitee.policy.callout.configuration.HttpClientOptions;
 import io.gravitee.policy.callout.configuration.Variable;
 import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.processors.ReplayProcessor;
+import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.PoolOptions;
 import io.vertx.rxjava3.core.Vertx;
 import io.vertx.rxjava3.core.http.HttpClientAgent;
@@ -59,8 +60,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -1248,6 +1253,110 @@ class CalloutHttpPolicyV4Test {
 
             return poolOptionsCaptor.getValue();
         }
+    }
+
+    @Nested
+    class DisposeReleasesConnection {
+
+        private final io.vertx.core.Vertx targetVertx = io.vertx.core.Vertx.vertx();
+        private final CountDownLatch requestReceived = new CountDownLatch(1);
+        private final Semaphore connectionClosed = new Semaphore(0);
+        private HttpServer target;
+
+        @BeforeEach
+        void startParkingTarget() {
+            // A target that accepts the connection and parks the request without ever answering, so the callout stays
+            // in flight until the test disposes it.
+            target = targetVertx
+                .createHttpServer()
+                .connectionHandler(connection -> connection.closeHandler(closed -> connectionClosed.release()))
+                .requestHandler(request -> requestReceived.countDown())
+                .listen(0)
+                .toCompletionStage()
+                .toCompletableFuture()
+                .join();
+        }
+
+        @AfterEach
+        void stopParkingTarget() {
+            targetVertx.close().toCompletionStage().toCompletableFuture().join();
+        }
+
+        @Test
+        void should_reset_in_flight_callout_and_release_its_connection_when_the_chain_is_disposed() throws InterruptedException {
+            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build();
+
+            var observer = policy(
+                CalloutHttpPolicyConfiguration.builder()
+                    .url("http://localhost:" + target.actualPort() + "/callout")
+                    .method(HttpMethod.GET)
+                    .build()
+            )
+                .onRequest(ctx)
+                .test();
+
+            // The connection is taken from the pool and the request written on it before we cancel.
+            assertThat(requestReceived.await(10, TimeUnit.SECONDS)).isTrue();
+            observer.assertNotComplete();
+
+            observer.dispose();
+
+            // Disposing must reset the in-flight callout request, which closes its upstream connection at once and
+            // frees the pool slot. Without the reset the connection would stay pooled and this would time out — the
+            // leaked-slot / stuck-connection failure mode.
+            assertThat(connectionClosed.tryAcquire(10, TimeUnit.SECONDS)).isTrue();
+        }
+
+        @Test
+        void should_free_the_pool_slot_of_a_callout_cancelled_while_it_waits_for_a_connection() throws InterruptedException {
+            // A target that parks the first request for ever — so the first callout keeps holding the only pool
+            // slot — but answers every later request, so a third callout can show the pool has recovered.
+            var requestCount = new AtomicInteger();
+            var firstParked = new CountDownLatch(1);
+            var slowTarget = targetVertx
+                .createHttpServer()
+                .requestHandler(request -> {
+                    if (requestCount.incrementAndGet() == 1) {
+                        firstParked.countDown();
+                    } else {
+                        request.response().setStatusCode(200).end();
+                    }
+                })
+                .listen(0)
+                .toCompletionStage()
+                .toCompletableFuture()
+                .join();
+
+            // A pool of a single connection, so a second callout must queue for the slot the first one holds.
+            var vertx = Vertx.vertx();
+            var config = CalloutHttpPolicyConfiguration.builder()
+                .url("http://localhost:" + slowTarget.actualPort() + "/callout")
+                .method(HttpMethod.GET)
+                .httpOptions(new HttpClientOptions(1, 0))
+                .build();
+            var policy = policy(config);
+
+            // The first callout takes the only pooled connection and parks on the target, holding the slot.
+            var first = policy.onRequest(ctxWithVertx(vertx)).test();
+            assertThat(firstParked.await(10, TimeUnit.SECONDS)).isTrue();
+
+            // The second callout finds the pool full and registers as a waiter for the slot: its acquisition future
+            // stays pending. Cancelling it does not cancel that future, so once the slot is freed the pool still
+            // grants it a connection even though its reactive chain is already gone.
+            var second = policy.onRequest(ctxWithVertx(vertx)).test();
+            second.dispose();
+
+            // Free the slot. The connection then granted to the cancelled waiter must be reset so its slot returns to
+            // the pool; without that reset the slot stays held for ever and the pool never recovers.
+            first.dispose();
+
+            // The pool has recovered only if a fresh callout can still get a connection and complete.
+            policy.onRequest(ctxWithVertx(vertx)).test().awaitDone(10, TimeUnit.SECONDS).assertComplete();
+        }
+    }
+
+    private static DefaultExecutionContext ctxWithVertx(Vertx vertx) {
+        return new ExecutionContextBuilder().withComponent(Vertx.class, vertx).request(aRequest().build()).build();
     }
 
     String targetUrl(boolean https) {
