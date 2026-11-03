@@ -102,7 +102,7 @@ system:
 | Exit on error<br>`exitOnError`| boolean| ✅| | Terminate the request if the error condition is true.|
 | Fire & forget<br>`fireAndForget`| boolean|  | | Make the HTTP call without expecting any response. When activating this mode, context variables and exit on error are useless.|
 | Request Headers<br>`headers`| array|  | | <br/>See "Request Headers" section.|
-| `http`| object|  | | <br/>See "" section.|
+| HTTP client options<br>`http`| object|  | | <br/>See "HTTP client options" section.|
 | HTTP Method<br>`method`| enum (string)| ✅| `GET`| HTTP method to invoke the endpoint.<br>Values: `GET` `POST` `PUT` `DELETE` `PATCH` `HEAD` `CONNECT` `OPTIONS` `TRACE`|
 | URL<br>`url`| string| ✅| | |
 | Use system proxy<br>`useSystemProxy`| boolean|  | | Use the system proxy configured by your administrator.|
@@ -116,10 +116,11 @@ system:
 | Value<br>`value`| string|  | |
 
 
-####  (Object)
+#### HTTP client options (Object)
 | Name <br>`json name`  | Type <br>`constraint`  | Mandatory  | Default  | Description  |
 |:----------------------|:-----------------------|:----------:|:---------|:-------------|
 | Max concurrent connections<br>`maxConcurrentConnections`| integer|  | `20`| The maximum concurrent connections triggered by the policy at the same time.|
+| Max connection lifetime (ms)<br>`maxConnectionLifetime`| integer<br>`[0, 2147483647]`|  | `0`| Maximum time in milliseconds a pooled connection lives before it is recycled once idle. 0 means no maximum lifetime. Applies to v4 APIs and to v2 APIs with Emulate v4 engine.|
 
 
 #### Context variables (Array)

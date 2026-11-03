@@ -33,6 +33,8 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import io.gravitee.common.http.HttpMethod;
 import io.gravitee.el.TemplateEngine;
@@ -40,6 +42,7 @@ import io.gravitee.gateway.reactive.api.ExecutionFailure;
 import io.gravitee.gateway.reactive.api.context.kafka.KafkaMessageExecutionContext;
 import io.gravitee.gateway.reactive.api.message.kafka.KafkaMessage;
 import io.gravitee.gateway.reactive.api.tracing.Tracer;
+import io.gravitee.gateway.reactive.core.context.DefaultExecutionContext;
 import io.gravitee.gateway.reactive.core.context.interruption.InterruptionFailureException;
 import io.gravitee.node.api.Node;
 import io.gravitee.node.api.configuration.Configuration;
@@ -50,7 +53,9 @@ import io.reactivex.rxjava3.core.Flowable;
 import io.reactivex.rxjava3.processors.ReplayProcessor;
 import io.vertx.core.http.PoolOptions;
 import io.vertx.rxjava3.core.Vertx;
+import io.vertx.rxjava3.core.http.HttpClientAgent;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -63,7 +68,9 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.invocation.Invocation;
 import org.slf4j.LoggerFactory;
+import org.slf4j.helpers.MessageFormatter;
 import test.ExecutionContextBuilder;
 import test.stub.KafkaMessageRequestStub;
 import test.stub.KafkaMessageResponseStub;
@@ -732,6 +739,47 @@ class CalloutHttpPolicyV4Test {
             verify(nodeConfiguration).getProperty("system.proxy.username");
             verify(nodeConfiguration).getProperty("system.proxy.password");
         }
+
+        @ParameterizedTest
+        @ValueSource(ints = { 0, 60000 })
+        void should_not_warn_when_max_connection_lifetime_is_not_negative(int maxConnectionLifetime) {
+            wiremock.stubFor(get(urlEqualTo("/")).willReturn(aResponse().withStatus(200)));
+            var ctxLogger = mock(org.slf4j.Logger.class);
+
+            var callout = policy(maxConnectionLifetimeConfiguration(maxConnectionLifetime))
+                .onRequest(contextLoggingTo(ctxLogger))
+                .test()
+                .awaitDone(30, TimeUnit.SECONDS);
+
+            callout.assertComplete();
+            assertThat(warnings(ctxLogger)).isEmpty();
+        }
+
+        private CalloutHttpPolicyConfiguration maxConnectionLifetimeConfiguration(int maxConnectionLifetime) {
+            return CalloutHttpPolicyConfiguration.builder()
+                .url(targetUrl(false))
+                .method(HttpMethod.GET)
+                .httpOptions(new HttpClientOptions(20, maxConnectionLifetime))
+                .build();
+        }
+
+        private DefaultExecutionContext contextLoggingTo(org.slf4j.Logger ctxLogger) {
+            var ctx = spy(new ExecutionContextBuilder().withComponent(Vertx.class, Vertx.vertx()).request(aRequest().build()).build());
+            doReturn(ctxLogger).when(ctx).withLogger(any(org.slf4j.Logger.class));
+            return ctx;
+        }
+
+        private List<String> warnings(org.slf4j.Logger ctxLogger) {
+            return mockingDetails(ctxLogger)
+                .getInvocations()
+                .stream()
+                .filter(invocation -> invocation.getMethod().getName().equals("warn"))
+                .map(Invocation::getArguments)
+                .map(arguments ->
+                    MessageFormatter.arrayFormat((String) arguments[0], Arrays.copyOfRange(arguments, 1, arguments.length)).getMessage()
+                )
+                .toList();
+        }
     }
 
     @Nested
@@ -1151,40 +1199,54 @@ class CalloutHttpPolicyV4Test {
 
         @Test
         void should_set_max_pool_size_from_configuration() {
-            var mockVertx = mock(Vertx.class);
-            var mockHttpClient = mock(io.vertx.rxjava3.core.http.HttpClientAgent.class);
-            var poolOptionsCaptor = ArgumentCaptor.forClass(PoolOptions.class);
-            when(mockVertx.createHttpClient(any(io.vertx.core.http.HttpClientOptions.class), poolOptionsCaptor.capture())).thenReturn(
-                mockHttpClient
-            );
+            var poolOptions = poolOptionsCreatedFor(localhostConfiguration().httpOptions(new HttpClientOptions(10, 0)).build());
 
-            var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, mockVertx).request(aRequest().build()).build();
-
-            policy(
-                CalloutHttpPolicyConfiguration.builder()
-                    .url("http://localhost/")
-                    .method(HttpMethod.GET)
-                    .httpOptions(new HttpClientOptions(10))
-                    .build()
-            ).getHttpClient(ctx);
-
-            assertThat(poolOptionsCaptor.getValue().getHttp1MaxSize()).isEqualTo(10);
+            assertThat(poolOptions.getHttp1MaxSize()).isEqualTo(10);
         }
 
         @Test
         void should_set_max_pool_size_default_value() {
-            var mockVertx = mock(Vertx.class);
-            var mockHttpClient = mock(io.vertx.rxjava3.core.http.HttpClientAgent.class);
-            var poolOptionsCaptor = ArgumentCaptor.forClass(PoolOptions.class);
-            when(mockVertx.createHttpClient(any(io.vertx.core.http.HttpClientOptions.class), poolOptionsCaptor.capture())).thenReturn(
-                mockHttpClient
+            var poolOptions = poolOptionsCreatedFor(localhostConfiguration().build());
+
+            assertThat(poolOptions.getHttp1MaxSize()).isEqualTo(20);
+        }
+
+        @Test
+        void should_set_max_connection_lifetime_in_milliseconds_from_configuration() {
+            var poolOptions = poolOptionsCreatedFor(
+                localhostConfiguration().httpOptions(new HttpClientOptions(20, Integer.MAX_VALUE)).build()
             );
 
+            assertThat(poolOptions)
+                .returns(Integer.MAX_VALUE, PoolOptions::getMaxLifetime)
+                .returns(TimeUnit.MILLISECONDS, PoolOptions::getMaxLifetimeUnit);
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = { "{}", "{\"maxConnectionLifetime\": 0}", "{\"maxConnectionLifetime\": -1}" })
+        void should_set_no_max_connection_lifetime_when_absent_zero_or_negative(String httpOptionsJson) throws JsonProcessingException {
+            var poolOptions = poolOptionsCreatedFor(
+                localhostConfiguration().httpOptions(new ObjectMapper().readValue(httpOptionsJson, HttpClientOptions.class)).build()
+            );
+
+            assertThat(poolOptions.getMaxLifetime()).isZero();
+        }
+
+        private CalloutHttpPolicyConfiguration.CalloutHttpPolicyConfigurationBuilder localhostConfiguration() {
+            return CalloutHttpPolicyConfiguration.builder().url("http://localhost/").method(HttpMethod.GET);
+        }
+
+        private PoolOptions poolOptionsCreatedFor(CalloutHttpPolicyConfiguration configuration) {
+            var mockVertx = mock(Vertx.class);
+            var poolOptionsCaptor = ArgumentCaptor.forClass(PoolOptions.class);
+            when(mockVertx.createHttpClient(any(io.vertx.core.http.HttpClientOptions.class), poolOptionsCaptor.capture())).thenReturn(
+                mock(HttpClientAgent.class)
+            );
             var ctx = new ExecutionContextBuilder().withComponent(Vertx.class, mockVertx).request(aRequest().build()).build();
 
-            policy(CalloutHttpPolicyConfiguration.builder().url("http://localhost/").method(HttpMethod.GET).build()).getHttpClient(ctx);
+            policy(configuration).getHttpClient(ctx);
 
-            assertThat(poolOptionsCaptor.getValue().getHttp1MaxSize()).isEqualTo(20);
+            return poolOptionsCaptor.getValue();
         }
     }
 

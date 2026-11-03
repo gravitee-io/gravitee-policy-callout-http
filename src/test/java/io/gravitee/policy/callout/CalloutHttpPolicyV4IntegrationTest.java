@@ -35,10 +35,14 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonObject;
 import io.vertx.rxjava3.core.http.HttpClient;
 import io.vertx.rxjava3.core.http.HttpClientRequest;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class CalloutHttpPolicyV4IntegrationTest {
@@ -209,6 +213,106 @@ class CalloutHttpPolicyV4IntegrationTest {
             if (apiEndpoint.contains("request")) {
                 wiremock.verify(0, getRequestedFor(urlPathEqualTo("/endpoint")));
             }
+        }
+    }
+
+    @Nested
+    class ConnectionLifetime extends AbstractV4EngineTest {
+
+        private static final CountingCalloutTarget COUNTING_TARGET = new CountingCalloutTarget();
+
+        @AfterAll
+        static void closeCountingTarget() {
+            COUNTING_TARGET.close();
+        }
+
+        @BeforeEach
+        void resetCountingTarget() {
+            COUNTING_TARGET.reset();
+        }
+
+        @Override
+        public void configurePlaceHolderVariables(Map<String, String> variables) {
+            super.configurePlaceHolderVariables(variables);
+            variables.put(CountingCalloutTarget.URL_PLACEHOLDER, COUNTING_TARGET.url());
+        }
+
+        @ParameterizedTest
+        @DeployApi(
+            {
+                "/apis/v4/proxy/request-callout-http-lifetime-short.json",
+                "/apis/v4/proxy/request-callout-http-lifetime-negative.json",
+                "/apis/v4/proxy/request-callout-http-lifetime-absent.json",
+                "/apis/v4/proxy/request-callout-http-lifetime-zero.json",
+            }
+        )
+        @CsvSource(
+            {
+                "/request-callout-http-lifetime-short, 5000, true, 3",
+                "/request-callout-http-lifetime-negative, 1500, false, 1",
+                "/request-callout-http-lifetime-absent, 1500, false, 1",
+                "/request-callout-http-lifetime-zero, 1500, false, 1",
+            }
+        )
+        void should_open_a_new_callout_connection_only_when_the_idle_one_outlives_max_lifetime(
+            String path,
+            long idleWaitMs,
+            boolean expectedIdleClose,
+            int expectedAcceptedConnections,
+            HttpClient client
+        ) throws InterruptedException {
+            wiremock.stubFor(get("/endpoint").willReturn(ok("response from backend")));
+
+            for (int callout = 0; callout < 3; callout++) {
+                if (callout > 0) {
+                    // Vert.x evicts expired connections only on the 1000 ms pool cleaner tick, so a no-close row must idle past 200 ms lifetime + one cleaner period to catch a lifetime wrongly applied; 60 s keep-alive never fires.
+                    assertThat(COUNTING_TARGET.awaitConnectionClose(idleWaitMs, TimeUnit.MILLISECONDS)).isEqualTo(expectedIdleClose);
+                }
+                callApi(client, path)
+                    .awaitDone(10, TimeUnit.SECONDS)
+                    .assertComplete()
+                    .assertValue(response -> {
+                        assertThat(response).hasToString("new content: response from callout");
+                        return true;
+                    });
+            }
+
+            assertThat(COUNTING_TARGET.acceptedConnections()).isEqualTo(expectedAcceptedConnections);
+        }
+
+        @ParameterizedTest
+        @DeployApi(
+            {
+                "/apis/v4/proxy/request-callout-http-lifetime-short-slow-target.json",
+                "/apis/v4/proxy/request-callout-http-lifetime-max.json",
+            }
+        )
+        @CsvSource({ "/request-callout-http-lifetime-short-slow-target, 3000", "/request-callout-http-lifetime-max, 0" })
+        void should_complete_callout_with_target_response_under_configured_lifetime(String path, int targetDelayMs, HttpClient client) {
+            wiremock.stubFor(get("/endpoint").willReturn(ok("response from backend")));
+            calloutServer.stubFor(get("/callout").willReturn(ok("response from callout").withFixedDelay(targetDelayMs)));
+
+            callApi(client, path)
+                .awaitDone(10, TimeUnit.SECONDS)
+                .assertComplete()
+                .assertValue(response -> {
+                    assertThat(response).hasToString("new content: response from callout");
+                    return true;
+                });
+
+            calloutServer.verify(getRequestedFor(urlPathEqualTo("/callout")));
+        }
+
+        private static TestSubscriber<String> callApi(HttpClient client, String path) {
+            return client
+                .rxRequest(HttpMethod.GET, path)
+                .flatMap(HttpClientRequest::rxSend)
+                .flatMapPublisher(response -> {
+                    assertThat(response.statusCode()).isEqualTo(200);
+                    return response.toFlowable();
+                })
+                .map(Object::toString)
+                .test();
         }
     }
 
