@@ -220,6 +220,13 @@ spec:
 
 ## Changelog
 
+### [7.1.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/7.0.2...7.1.0) (2026-11-03)
+
+
+##### Features
+
+* add maximum connection lifetime to the callout connection pool ([eedc5b1](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/eedc5b1e1f95013d2844f2f767aa300445709dbd))
+
 #### [7.0.2](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/7.0.1...7.0.2) (2026-10-06)
 
 
