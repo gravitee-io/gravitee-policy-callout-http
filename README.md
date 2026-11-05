@@ -220,6 +220,13 @@ spec:
 
 ## Changelog
 
+#### [7.1.1](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/7.1.0...7.1.1) (2026-11-05)
+
+
+##### Bug Fixes
+
+* release pooled connection when a callout is cancelled ([30276ac](https://github.com/gravitee-io/gravitee-policy-callout-http/commit/30276ac9ff101f7addf537a750e408c91c0a466d))
+
 ### [7.1.0](https://github.com/gravitee-io/gravitee-policy-callout-http/compare/7.0.2...7.1.0) (2026-11-03)
 
 
